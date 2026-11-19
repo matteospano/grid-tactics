@@ -3,1278 +3,1190 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Circuit Schematic Evolution</title>
-    <!-- Tailwind CSS for UI controls and overlays -->
+    <title>Elemental Grid Tactics - Tactical Card Battle</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;600;700&display=swap');
         body {
-            font-family: 'Fira Code', monospace;
-            background-color: #080c14;
-            color: #94a3b8;
-            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
             user-select: none;
         }
-        /* Grid background pattern */
-        .blueprint-bg {
-            background-color: #0b0f19;
-            background-image: 
-                linear-gradient(rgba(14, 165, 233, 0.05) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(14, 165, 233, 0.05) 1px, transparent 1px),
-                linear-gradient(rgba(14, 165, 233, 0.02) 5px, transparent 5px),
-                linear-gradient(90deg, rgba(14, 165, 233, 0.02) 5px, transparent 5px);
-            background-size: 100px 100px, 100px 100px, 20px 20px, 20px 20px;
-            background-position: -1px -1px, -1px -1px, -1px -1px, -1px -1px;
+
+        /* Custom Animations & Card Styling */
+        @keyframes pulse-border {
+            0%, 100% { border-color: rgba(56, 189, 248, 0.9); box-shadow: 0 0 15px rgba(56, 189, 248, 0.5); }
+            50% { border-color: rgba(56, 189, 248, 0.3); box-shadow: 0 0 5px rgba(56, 189, 248, 0.15); }
         }
-        canvas {
-            touch-action: none;
+
+        @keyframes float-damage {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-30px) scale(1.2); }
         }
-        /* Custom scrollbars */
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: #0b0f19; }
-        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #334155; }
+
+        .active-card-glow {
+            animation: pulse-border 1.4s infinite;
+            border-width: 3px !important;
+        }
+
+        .damage-popup {
+            animation: float-damage 1.1s ease-out forwards;
+            pointer-events: none;
+        }
+
+        .card-fire { background: linear-gradient(135deg, #991b1b 0%, #dc2626 100%); border-color: #f87171; }
+        .card-water { background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%); border-color: #60a5fa; }
+        .card-earth { background: linear-gradient(135deg, #065f46 0%, #059669 100%); border-color: #34d399; }
+        .card-air { background: linear-gradient(135deg, #334155 0%, #475569 100%); border-color: #94a3b8; border-style: dashed; }
+        .card-cloud { background: linear-gradient(135deg, #3730a3 0%, #4f46e5 100%); border-color: #818cf8; border-style: dashed; }
+
+        .grid-cell {
+            transition: all 0.15s ease;
+        }
+        .grid-cell-valid-move {
+            background-color: rgba(56, 189, 248, 0.22) !important;
+            border-color: #38bdf8 !important;
+            cursor: pointer;
+        }
+        .grid-cell-valid-move:hover {
+            background-color: rgba(56, 189, 248, 0.4) !important;
+        }
+        .grid-cell-targetable {
+            cursor: crosshair;
+        }
+        .grid-cell-targetable:hover {
+            transform: scale(1.03);
+            box-shadow: 0 0 15px rgba(244, 63, 94, 0.7);
+        }
     </style>
 </head>
-<body class="blueprint-bg h-screen w-screen flex flex-col justify-between relative overflow-hidden">
+<body class="min-h-screen flex flex-col items-center justify-between p-2 sm:p-4">
 
-    <!-- Top Blueprint Header -->
-    <header class="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-10 pointer-events-none">
-        <div class="bg-slate-900/80 backdrop-blur border border-cyan-500/30 p-3 rounded-lg shadow-lg pointer-events-auto flex items-center gap-3">
-            <div class="w-3 h-3 rounded-full bg-cyan-400 animate-pulse"></div>
-            <div>
-                <h1 class="text-sm font-bold text-cyan-400 tracking-wider uppercase">Project: Logic Graph Schematic</h1>
-                <p class="text-xs text-slate-400" id="status-text">Phase 1: Basic Closed Wire Loop</p>
+    <!-- Top Header & Snake Queue Bar -->
+    <header class="w-full max-w-5xl flex flex-col gap-2 mb-2">
+        <div class="flex flex-wrap items-center justify-between bg-slate-800/90 border border-slate-700 rounded-xl px-4 py-2.5 shadow-lg">
+            <div class="flex items-center gap-2.5">
+                <span class="text-2xl">⚔️</span>
+                <div>
+                    <h1 class="text-base sm:text-lg font-black tracking-tight text-white">ELEMENTAL GRID TACTICS</h1>
+                    <p class="text-[11px] text-slate-400">Fire &gt; Earth &gt; Water &gt; Fire • Front Row Intercepts</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button id="btn-rules" class="px-3 py-1.5 text-xs font-semibold bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg transition">
+                    📖 Rules
+                </button>
+                <button id="btn-restart" class="px-3 py-1.5 text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white rounded-lg transition shadow">
+                    ↻ New Match
+                </button>
             </div>
         </div>
 
-        <div class="bg-slate-900/80 backdrop-blur border border-slate-700/50 p-2 rounded-lg shadow-lg pointer-events-auto flex items-center gap-2">
-            <button id="btn-zoom-in" class="p-2 bg-slate-800 hover:bg-slate-700 text-cyan-400 rounded border border-slate-700 transition font-bold" title="Zoom In">+</button>
-            <button id="btn-zoom-out" class="p-2 bg-slate-800 hover:bg-slate-700 text-cyan-400 rounded border border-slate-700 transition font-bold" title="Zoom Out">-</button>
-            <button id="btn-reset-view" class="p-2 bg-slate-800 hover:bg-slate-700 text-cyan-400 rounded border border-slate-700 transition text-xs font-bold px-3">RESET VIEW</button>
+        <!-- Snake Draft Turn Queue -->
+        <div id="snake-queue-container" class="hidden bg-slate-800/80 border border-slate-700 rounded-xl px-3 py-2 flex flex-col sm:flex-row items-center justify-between gap-2 shadow">
+            <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400 shrink-0">
+                <span>🐍 Snake Turn Order:</span>
+            </div>
+            <div id="snake-queue-list" class="flex items-center gap-1.5 overflow-x-auto max-w-full py-0.5">
+                <!-- Queue pills injected here -->
+            </div>
+            <div id="round-indicator" class="text-xs font-bold text-sky-400 shrink-0">
+                Round 1
+            </div>
         </div>
     </header>
 
-    <!-- Canvas Container -->
-    <main class="w-full h-full relative cursor-grab active:cursor-grabbing" id="canvas-container">
-        <canvas id="schematicCanvas" class="w-full h-full block"></canvas>
+    <!-- Main Battle Arena -->
+    <main class="w-full max-w-5xl flex-1 flex flex-col lg:flex-row gap-4 items-stretch justify-center my-1">
+
+        <!-- Left / Center: The Two 3x5 Boards -->
+        <div class="flex-1 flex flex-col items-center justify-center gap-3 relative">
+
+            <!-- ENEMY 3x5 GRID (Top) -->
+            <div class="w-full max-w-xl bg-slate-900/90 border border-rose-900/50 rounded-2xl p-2.5 sm:p-3 shadow-xl relative">
+                <div class="flex justify-between items-center mb-1.5 px-1">
+                    <span class="text-xs font-bold uppercase tracking-wider text-rose-400 flex items-center gap-1.5">
+                        <span>🤖 Bot Territory</span>
+                        <span class="text-[10px] font-normal text-slate-400">(Row 3 Back &rarr; Row 1 Front)</span>
+                    </span>
+                    <span id="enemy-alive-count" class="text-xs font-semibold text-slate-400">5 Cards</span>
+                </div>
+
+                <!-- Enemy Grid Cells (Row 0 = Back, Row 2 = Front) -->
+                <div id="enemy-grid" class="grid grid-cols-5 gap-1.5 sm:gap-2">
+                    <!-- 15 cells generated by JS -->
+                </div>
+
+                <!-- Compact Promotion Overlay (Positioned ONLY over Enemy Grid so Player can see their own field!) -->
+                <div id="promotion-overlay" class="hidden absolute inset-0 bg-slate-950/92 backdrop-blur-sm rounded-2xl z-30 flex flex-col items-center justify-center p-4 text-center border-2 border-amber-400 shadow-2xl">
+                    <div class="text-2xl mb-1">✨</div>
+                    <h3 class="text-sm sm:text-base font-black text-amber-300 uppercase tracking-wide">Elemental Promotion!</h3>
+                    <p id="promotion-desc" class="text-xs text-slate-300 mt-1 mb-3 max-w-md">
+                        Your fallen element can empower your neutral Air or Cloud card below. Look at your formation to choose wisely!
+                    </p>
+                    <div id="promotion-buttons" class="flex flex-wrap items-center justify-center gap-2">
+                        <!-- Promotion choice buttons injected here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Frontline Divider -->
+            <div class="w-full max-w-xl flex items-center gap-3 px-2">
+                <div class="h-px flex-1 bg-gradient-to-r from-transparent via-amber-500/50 to-transparent"></div>
+                <span class="text-[10px] font-extrabold uppercase tracking-widest text-amber-400/90 bg-slate-900 px-2.5 py-0.5 rounded-full border border-amber-500/30">
+                    🛡️ Frontline Cover Zone (Front Rows Block Shots Behind Them)
+                </span>
+                <div class="h-px flex-1 bg-gradient-to-r from-transparent via-amber-500/50 to-transparent"></div>
+            </div>
+
+            <!-- PLAYER 3x5 GRID (Bottom) -->
+            <div class="w-full max-w-xl bg-slate-900/90 border border-sky-900/60 rounded-2xl p-2.5 sm:p-3 shadow-xl relative">
+                <div class="flex justify-between items-center mb-1.5 px-1">
+                    <span class="text-xs font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
+                        <span>👤 Your Territory</span>
+                        <span class="text-[10px] font-normal text-slate-400">(Row 1 Front &rarr; Row 3 Back)</span>
+                    </span>
+                    <span id="player-alive-count" class="text-xs font-semibold text-slate-400">5 Cards</span>
+                </div>
+
+                <!-- Player Grid Cells (Row 0 = Front, Row 2 = Back) -->
+                <div id="player-grid" class="grid grid-cols-5 gap-1.5 sm:gap-2">
+                    <!-- 15 cells generated by JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Controls, Setup Dock & Battle Log -->
+        <aside class="w-full lg:w-80 flex flex-col gap-3">
+
+            <!-- Action & Phase Control Card -->
+            <div class="bg-slate-800/90 border border-slate-700 rounded-2xl p-3.5 shadow-lg flex flex-col gap-2.5">
+                <div class="flex items-center justify-between">
+                    <span id="phase-badge" class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                        Setup Phase
+                    </span>
+                    <span id="active-unit-badge" class="text-xs font-bold text-slate-300"></span>
+                </div>
+
+                <p id="instruction-text" class="text-xs sm:text-sm text-slate-200 leading-relaxed font-medium">
+                    Select a card from your roster below and click any square on your 3×5 grid to deploy it.
+                </p>
+
+                <!-- Setup Roster Tray (Visible during Setup) -->
+                <div id="setup-tray" class="flex flex-col gap-2 mt-1">
+                    <div class="text-[11px] font-bold uppercase text-slate-400 flex justify-between">
+                        <span>Your Squad (Order #1 &rarr; #5):</span>
+                        <button id="btn-auto-deploy" class="text-sky-400 hover:text-sky-300 underline">Auto-Fill</button>
+                    </div>
+                    <div id="setup-cards-list" class="grid grid-cols-5 gap-1.5">
+                        <!-- Setup cards injected by JS -->
+                    </div>
+                    <p class="text-[10px] text-slate-400 italic">
+                        Tip: Cards activate in Snake Order (#1 to #5). Put solid elements in Row 1 to block attacks aimed at cards behind them!
+                    </p>
+                    <button id="btn-start-battle" disabled class="w-full py-2.5 mt-1 rounded-xl font-bold text-sm bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-500 text-white shadow-lg transition cursor-pointer disabled:cursor-not-allowed">
+                        ⚔️ Lock In & Start Battle
+                    </button>
+                </div>
+
+                <!-- Combat Action Buttons (Visible during Battle) -->
+                <div id="combat-controls" class="hidden flex flex-col gap-2 mt-1">
+                    <div id="selected-card-inspector" class="bg-slate-900/90 border border-slate-700 rounded-xl p-2.5 text-xs">
+                        <!-- Detailed defense & bonus breakdown of active/hovered card -->
+                    </div>
+
+                    <div class="flex gap-2">
+                        <button id="btn-stay-still" class="flex-1 py-2 px-3 rounded-xl font-bold text-xs bg-slate-700 hover:bg-slate-600 text-white border border-slate-600 transition">
+                            🛑 Stay Still & Attack
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Live Combat Log -->
+            <div class="flex-1 bg-slate-800/80 border border-slate-700 rounded-2xl p-3 shadow-lg flex flex-col min-h-[160px] max-h-[260px]">
+                <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center justify-between">
+                    <span>📜 Battle Log</span>
+                    <span class="text-[10px] text-slate-500">Latest first</span>
+                </div>
+                <div id="battle-log" class="flex-1 overflow-y-auto space-y-1.5 text-xs pr-1">
+                    <div class="text-slate-400 italic">Deploy your 5 cards in secret to begin...</div>
+                </div>
+            </div>
+
+        </aside>
     </main>
 
-    <!-- Node Hover Card / Upgrade Modal Sidebar -->
-    <div id="hover-card" class="absolute bottom-6 left-6 z-10 w-80 bg-slate-900/90 backdrop-blur-md border border-cyan-500/40 p-4 rounded-xl shadow-2xl transition-all duration-200 transform translate-y-4 opacity-0 pointer-events-none">
-        <div class="flex justify-between items-start mb-2">
-            <span id="card-type" class="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-800">Node Component</span>
-            <span id="card-tier" class="text-[10px] text-amber-400 font-semibold">Tier 1</span>
-        </div>
-        <h3 id="card-title" class="text-base font-bold text-slate-100 mb-1">Component Name</h3>
-        <p id="card-desc" class="text-xs text-slate-300 leading-relaxed mb-3">Description of the module evolution and structural changes.</p>
-        
-        <div id="card-prereq-container" class="mb-3 hidden">
-            <div class="text-[10px] uppercase tracking-wider text-rose-400 font-semibold mb-1">Prerequisites Required:</div>
-            <ul id="card-prereq-list" class="text-xs text-rose-300/80 list-disc list-inside"></ul>
-        </div>
-
-        <div id="card-action-prompt" class="text-xs font-bold text-cyan-400 bg-cyan-950/50 p-2 rounded border border-cyan-800/50 text-center animate-pulse">
-            Click Node to Evolve Component
+    <!-- Game Over Banner Modal -->
+    <div id="gameover-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-800 border-2 border-slate-600 rounded-2xl max-w-sm w-full p-6 text-center shadow-2xl">
+            <div id="gameover-emoji" class="text-5xl mb-3">🏆</div>
+            <h2 id="gameover-title" class="text-2xl font-black text-white mb-2">Victory!</h2>
+            <p id="gameover-msg" class="text-sm text-slate-300 mb-5">You outmaneuvered the bot and eliminated all enemy fighters.</p>
+            <button id="btn-play-again" class="w-full py-3 rounded-xl font-bold bg-sky-500 hover:bg-sky-400 text-slate-950 shadow-lg transition">
+                Play Again
+            </button>
         </div>
     </div>
 
-    <!-- Late Game Telemetry Controller Pad (Appears when RF Controller is unlocked) -->
-    <div id="remote-controller" class="absolute bottom-6 right-6 z-10 bg-slate-900/90 backdrop-blur-md border border-amber-500/40 p-4 rounded-xl shadow-2xl transition-all duration-500 opacity-0 pointer-events-none translate-y-10">
-        <div class="text-xs font-bold text-amber-400 uppercase tracking-wider mb-2 flex items-center justify-between">
-            <span>RF Telemetry Link</span>
-            <span id="rf-status" class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+    <!-- Rules Modal -->
+    <div id="rules-modal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-800 border border-slate-600 rounded-2xl max-w-lg w-full p-5 text-left shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-3 mb-3">
+                <h2 class="text-lg font-black text-white">📖 Tactical Rulebook</h2>
+                <button id="btn-close-rules" class="text-slate-400 hover:text-white text-xl font-bold px-2">&times;</button>
+            </div>
+            <div class="space-y-3 text-xs sm:text-sm text-slate-300 leading-relaxed">
+                <div>
+                    <h3 class="font-bold text-sky-400">1. Roster & Base Stats</h3>
+                    <p>Each player commands 5 cards: <strong>Fire, Water, Earth, Air, and Cloud</strong>. All cards start with <strong>100 HP, 55 ATK, and 20 Base DEF</strong>.</p>
+                </div>
+                <div>
+                    <h3 class="font-bold text-amber-400">2. Snake Draft Turn Order</h3>
+                    <p>Cards act in a strict Snake Order based on their slot number (#1 to #5): <br>
+                    <code class="text-amber-300 bg-slate-900 px-1.5 py-0.5 rounded">You #1 &rarr; Bot #1 &rarr; Bot #2 &rarr; You #2 &rarr; You #3 &rarr; Bot #3...</code><br>
+                    When a card dies, it is skipped in the queue and your next surviving card steps up.</p>
+                </div>
+                <div>
+                    <h3 class="font-bold text-emerald-400">3. Move + Global Attack</h3>
+                    <p>On a card's turn, it <strong>moves 1 orthogonal step</strong> (or stays still) AND launches <strong>1 global ranged attack</strong> at any enemy card.</p>
+                </div>
+                <div>
+                    <h3 class="font-bold text-rose-400">4. Front-Line Cover (Obstruction)</h3>
+                    <p>Solid cards (Fire, Water, Earth) <strong>intercept attacks</strong> aimed at cards directly behind them in the same column. <strong>Air & Cloud are transparent</strong>—shots pass right through them unless targeted directly.</p>
+                </div>
+                <div>
+                    <h3 class="font-bold text-purple-400">5. Adjacency Defense & Badges</h3>
+                    <p>Orthogonal neighbors modify your <strong>20 Base Defense</strong> based on the incoming attacker's element:<br>
+                    • <strong>Strong Counter Ally:</strong> +30% (+6 DEF)<br>
+                    • <strong>Neutral / Same Ally:</strong> +10% (+2 DEF)<br>
+                    • <strong>Weak / Clashing Ally:</strong> -15% (-3 DEF)<br>
+                    <em>On each card, the shield number shows its neutral defense, and small element badges show which specific attack types have extra (+6) or reduced (-3) protection!</em></p>
+                </div>
+                <div>
+                    <h3 class="font-bold text-yellow-300">6. Jolly Elemental Promotion</h3>
+                    <p>When your Fire, Water, or Earth card dies, at the start of your next turn you may permanently promote your neutral <strong>Air or Cloud</strong> card into that fallen element (gaining its strengths, weaknesses, and solid body-blocking).</p>
+                </div>
+            </div>
         </div>
-        <div class="grid grid-cols-3 gap-2 w-36 h-36 mx-auto">
-            <div></div>
-            <button id="btn-up" class="bg-slate-800 hover:bg-cyan-600 border border-slate-600 active:bg-cyan-400 text-cyan-300 rounded-lg font-bold flex items-center justify-center text-lg shadow-md transition">▲</button>
-            <div></div>
-            <button id="btn-left" class="bg-slate-800 hover:bg-cyan-600 border border-slate-600 active:bg-cyan-400 text-cyan-300 rounded-lg font-bold flex items-center justify-center text-lg shadow-md transition">◄</button>
-            <div class="bg-slate-950 border border-cyan-900/50 rounded-lg flex items-center justify-center text-[9px] text-cyan-500 font-bold">MATRIX</div>
-            <button id="btn-right" class="bg-slate-800 hover:bg-cyan-600 border border-slate-600 active:bg-cyan-400 text-cyan-300 rounded-lg font-bold flex items-center justify-center text-lg shadow-md transition">►</button>
-            <div></div>
-            <button id="btn-down" class="bg-slate-800 hover:bg-cyan-600 border border-slate-600 active:bg-cyan-400 text-cyan-300 rounded-lg font-bold flex items-center justify-center text-lg shadow-md transition">▼</button>
-            <div></div>
-        </div>
-        <div class="text-[10px] text-slate-400 text-center mt-2">Send RF Command Signal</div>
     </div>
-
-    <!-- Legend Footer -->
-    <footer class="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 bg-slate-900/80 backdrop-blur border border-slate-800 px-4 py-2 rounded-full text-xs flex gap-4 pointer-events-auto">
-        <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span><span class="text-slate-300">Power Trace</span></div>
-        <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span><span class="text-slate-300">Logic Bus</span></div>
-        <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-purple-400"></span><span class="text-slate-300">Clock & PWM</span></div>
-        <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-fuchsia-400"></span><span class="text-slate-300">High Voltage</span></div>
-        <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span><span class="text-slate-300">Wireless Telemetry</span></div>
-    </footer>
 
     <script>
-        // --- GAME ENGINE & SCHEMATIC LOGIC ---
-        const canvas = document.getElementById('schematicCanvas');
-        const ctx = canvas.getContext('2d');
-        const container = document.getElementById('canvas-container');
+        /**
+         * ELEMENTAL GRID TACTICS - Complete Game Engine
+         * Features:
+         * - 3x5 Player & Bot Grids
+         * - Snake Draft Turn Queue with dynamic elimination shifting
+         * - Effective Defense calculation + Specific Elemental Defense Badges
+         * - Front-Line Cover / Obstruction (Transparent Air & Cloud)
+         * - Jolly Elemental Promotion (Compact overlay over enemy board)
+         */
 
-        let width = canvas.width = container.clientWidth;
-        let height = canvas.height = container.clientHeight;
-
-        let scale = 1.0;
-        let panX = width / 2 - 100;
-        let panY = height / 2;
-        let isDragging = false;
-        let startPanX = 0, startPanY = 0;
-        let hoveredNode = null;
-        let animationFrameId = null;
-
-        // Particle System Pools
-        let electronParticles = [];
-        let heatParticles = [];
-        let rfWaves = [];
-        let actuatorSparks = [];
-
-        // Servo Actuator Motion States
-        const servoStates = {
-            fl: { tilt: 0, vibe: 0 },
-            fr: { tilt: 0, vibe: 0 },
-            rl: { tilt: 0, vibe: 0 },
-            rr: { tilt: 0, vibe: 0 }
+        const ELEMENTS = {
+            fire:  { name: 'Fire',  icon: '🔥', beats: 'earth', weakTo: 'water', solid: true,  style: 'card-fire' },
+            water: { name: 'Water', icon: '💧', beats: 'fire',  weakTo: 'earth', solid: true,  style: 'card-water' },
+            earth: { name: 'Earth', icon: '🌿', beats: 'water', weakTo: 'fire',  solid: true,  style: 'card-earth' },
+            air:   { name: 'Air',   icon: '🌪️', beats: null,    weakTo: null,    solid: false, style: 'card-air' },
+            cloud: { name: 'Cloud', icon: '☁️', beats: null,    weakTo: null,    solid: false, style: 'card-cloud' }
         };
 
-        // --- EXPANDED DECOMPOSED NODE TREE DEFINITIONS ---
-        const nodesData = {
-            // 1. MAIN POWER SECTION
-            "power_source": {
-                id: "power_source",
-                x: -420, y: 0,
-                stage: 0,
-                maxStage: 3,
-                stages: [
-                    { title: "Coin Cell Battery", type: "Power Primary", desc: "3V CR2032 Lithium Cell providing base potential.", symbol: "battery_coin" },
-                    { title: "Dual AA Series Cell", type: "Power Primary", desc: "Dual cell connection boosting supply current.", symbol: "battery_aa" },
-                    { title: "Li-Ion Battery Module", type: "Power Pack", desc: "Rechargeable 7.4V LiPo pack with balancing protection.", symbol: "battery_lipo" },
-                    { title: "Dual Rail USB & Li-Ion", type: "Hybrid Supply", desc: "Primary high-capacity battery bank with dual power leads.", symbol: "power_usb" }
-                ],
-                prereqs: [],
-                children: ["power_transformer", "protection_block", "switch_module"]
-            },
-            "power_transformer": {
-                id: "power_transformer",
-                x: -420, y: -160,
-                stage: -1,
-                maxStage: 2,
-                stages: [
-                    { title: "Buck Step-Down Converter", type: "Voltage Regulator", desc: "Smooths voltage rails sitting directly in parallel with battery.", symbol: "buck_regulator" },
-                    { title: "Peak Voltage Transformer", type: "Substation Module", desc: "High-capacity voltage transformer & peak spike suppressor.", symbol: "transformer_module" },
-                    { title: "Dual Rail Substation Matrix", type: "Power Distribution", desc: "Multi-tap power substation feeding primary board logic & actuators.", symbol: "substation_array" }
-                ],
-                prereqs: [ { node: "power_source", stage: 1 } ],
-                children: ["heatsink_bus"]
-            },
-            "protection_block": {
-                id: "protection_block",
-                x: -280, y: -160,
-                stage: -1,
-                maxStage: 2,
-                stages: [
-                    { title: "Inline Carbon Resistor", type: "Passive", desc: "Limits current flow to protect fragile filament load.", symbol: "resistor" },
-                    { title: "Fuse & Potentiometer", type: "Protection", desc: "Overcurrent blow-fuse with adjustable manual potentiometer.", symbol: "fuse_pot" },
-                    { title: "Decoupling Filter Array", type: "Filtering", desc: "Bank of ceramic & electrolytic capacitors to suppress ripple.", symbol: "filter_array" }
-                ],
-                prereqs: [ { node: "power_source", stage: 1 } ],
-                children: ["heatsink_bus"]
-            },
-            "heatsink_bus": {
-                id: "heatsink_bus",
-                x: -350, y: -280,
-                stage: -1,
-                maxStage: 1,
-                stages: [
-                    { title: "Passive Aluminum Sink V1", type: "Thermal Dissipator", desc: "Basic extruded fin block dispersing low thermal energy.", symbol: "heatsink_v1" },
-                    { title: "Active Dual-Fan Heatsink V2", type: "Active Thermal Unit", desc: "High-surface copper-core sink with twin cooling micro-fans radiating heat.", symbol: "heatsink_v2" }
-                ],
-                prereqs: [ { node: "power_transformer", stage: 0 }, { node: "protection_block", stage: 1 } ],
-                children: []
-            },
+        const BASE_HP = 100;
+        const BASE_ATK = 55;
+        const BASE_DEF = 20;
 
-            // 2. SWITCH & OSCILLATOR BRANCH
-            "switch_module": {
-                id: "switch_module",
-                x: -220, y: 160,
-                stage: 0,
-                maxStage: 3,
-                stages: [
-                    { title: "Direct Wire Lead", type: "Conductor", desc: "Simple copper trace completing the primary loop.", symbol: "wire" },
-                    { title: "Knife Switch", type: "Mechanical Switch", desc: "Manual single-pole toggle to interrupt electrical flow.", symbol: "knife_switch" },
-                    { title: "Transistor NPN Switch", type: "Semiconductor", desc: "Low-voltage transistor driver enabling digital switching.", symbol: "transistor" },
-                    { title: "555 Clock Pulse Generator", type: "Timing Engine", desc: "Oscillating circuit generating steady timing pulses.", symbol: "timer_555" }
-                ],
-                prereqs: [],
-                children: ["input_demux"]
-            },
-
-            // 3. LOAD / DISPLAY BRANCH
-            "light_output": {
-                id: "light_output",
-                x: 100, y: -160,
-                stage: 0,
-                maxStage: 3,
-                stages: [
-                    { title: "Filament Lamp Bulb", type: "Load", desc: "Standard incandescent bulb emitting warm glow.", symbol: "bulb" },
-                    { title: "Dual Parallel Lamps", type: "Multi-Load Array", desc: "Two parallel bulbs sharing power load across dual leads.", symbol: "dual_bulb" },
-                    { title: "Opto-Isolated Relay Unit", type: "Actuator Driver", desc: "Solid-state optical relay switching multi-circuit loads.", symbol: "relay" },
-                    { title: "8-Diode RGB Status Array", type: "Visual Diagnostics", desc: "Multi-diode LED status matrix for diagnostic telemetry visual.", symbol: "led_array" }
-                ],
-                prereqs: [],
-                children: ["logic_gates"]
-            },
-
-            // 4. DECOMPOSED PROCESSOR & LOGIC SYSTEM BOARD (EXPANDED SUB-CIRCUIT)
-            "input_demux": {
-                id: "input_demux",
-                x: -80, y: 120,
-                stage: -1,
-                maxStage: 1,
-                stages: [
-                    { title: "Bus Buffer & Switch Filter", type: "Logic Interface", desc: "Cleans input signals and handles line debouncing.", symbol: "demux_buffer" },
-                    { title: "74HC138 4-to-16 Demux", type: "Input Demultiplexer", desc: "High-speed de-multiplexer routing 4 matrix key traces into logic channels.", symbol: "demux_ic" }
-                ],
-                prereqs: [ { node: "switch_module", stage: 2 } ],
-                children: ["logic_gates"]
-            },
-            "logic_gates": {
-                id: "logic_gates",
-                x: 20, y: 0,
-                stage: -1,
-                maxStage: 2,
-                stages: [
-                    { title: "NAND & AND Discrete Gates", type: "Discrete Logic", desc: "Basic transistor logic evaluating primary circuit signals.", symbol: "nand_gates" },
-                    { title: "XOR / NOR Gate Matrix", type: "Gate Array", desc: "Configurable array of logic gates handling multi-way switching.", symbol: "logic_array" },
-                    { title: "ALU Arithmetic Logic Unit", type: "Core Processor", desc: "4-bit hardware ALU performing logical comparisons.", symbol: "alu_core" }
-                ],
-                prereqs: [ { node: "input_demux", stage: 0 }, { node: "light_output", stage: 1 } ],
-                children: ["clock_oscillator", "mcu_core"]
-            },
-            "clock_oscillator": {
-                id: "clock_oscillator",
-                x: 140, y: 120,
-                stage: -1,
-                maxStage: 1,
-                stages: [
-                    { title: "16MHz Quartz Crystal Oscillator", type: "System Clock", desc: "Provides stable high-frequency clock pulses to CPU registers.", symbol: "crystal_osc" }
-                ],
-                prereqs: [ { node: "logic_gates", stage: 1 } ],
-                children: ["mcu_core"]
-            },
-            "mcu_core": {
-                id: "mcu_core",
-                x: 180, y: 0,
-                stage: -1,
-                maxStage: 2,
-                stages: [
-                    { title: "ATmega Microcontroller Core", type: "CPU Unit", desc: "Integrated RISC microcontroller running system firmware.", symbol: "microcontroller" },
-                    { title: "Dual Core 32-bit MCU Module", type: "CPU Unit", desc: "Dual core processor handling real-time wireless & motor logic.", symbol: "dual_mcu" }
-                ],
-                prereqs: [ { node: "logic_gates", stage: 1 }, { node: "clock_oscillator", stage: 0 } ],
-                children: ["pwm_driver", "rf_transmitter"]
-            },
-            "pwm_driver": {
-                id: "pwm_driver",
-                x: 280, y: 120,
-                stage: -1,
-                maxStage: 1,
-                stages: [
-                    { title: "PCA9685 16-Ch PWM Driver", type: "Motor Controller", desc: "Generates precise pulse-width modulation for servo positioning.", symbol: "pwm_ic" }
-                ],
-                prereqs: [ { node: "mcu_core", stage: 0 } ],
-                children: ["rf_transmitter"]
-            },
-            "tactile_keypad": {
-                id: "tactile_keypad",
-                x: -80, y: 260,
-                stage: -1,
-                maxStage: 1,
-                stages: [
-                    { title: "4-Way Arrow Keypad Matrix", type: "Input Interface", desc: "4-button directional switch matrix driving parallel control traces.", symbol: "keypad" }
-                ],
-                prereqs: [ { node: "input_demux", stage: 0 } ],
-                children: ["input_demux"]
-            },
-
-            // 5. RF TELEMETRY TRANSMITTER
-            "rf_transmitter": {
-                id: "rf_transmitter",
-                x: 380, y: 0,
-                stage: -1,
-                maxStage: 1,
-                stages: [
-                    { title: "433MHz RF Transmitter V1", type: "Telemetry", desc: "Simple ASK transmitter broadcasting remote control frames.", symbol: "transmitter_v1" },
-                    { title: "Dual-Band 2.4GHz Transceiver V2", type: "Telemetry", desc: "High-speed encrypted digital transceiver module.", symbol: "transmitter_v2" }
-                ],
-                prereqs: [ { node: "mcu_core", stage: 0 }, { node: "pwm_driver", stage: 0 } ],
-                children: ["rf_receiver"]
-            },
-
-            // 6. DETACHED ROBOT CHASSIS SUB-CIRCUIT
-            "rf_receiver": {
-                id: "rf_receiver",
-                x: 620, y: 0,
-                stage: -1,
-                maxStage: 1,
-                stages: [
-                    { title: "Basic Wire Dipole Receiver V1", type: "Wireless Telemetry", desc: "Receives raw airborne telemetry frames on the robot board.", symbol: "receiver_v1" },
-                    { title: "Low-Noise Antenna Receiver V2", type: "Wireless Telemetry", desc: "Enhanced sensitivity RF receiver with low-noise amplification.", symbol: "receiver_v2" }
-                ],
-                prereqs: [ { node: "rf_transmitter", stage: 0 } ],
-                children: ["decoder_ic", "camera_module"]
-            },
-            "camera_module": {
-                id: "camera_module",
-                x: 620, y: -160,
-                stage: -1,
-                maxStage: 1,
-                stages: [
-                    { title: "Standard Optical Camera V1", type: "Vision Sensor", desc: "Monochrome telemetry camera with fixed optical lens.", symbol: "camera_v1" },
-                    { title: "HD Vision Lens & Flash V2", type: "Vision Sensor", desc: "High-resolution camera array with dual illuminator LEDs and wide FOV.", symbol: "camera_v2" }
-                ],
-                prereqs: [ { node: "rf_receiver", stage: 0 } ],
-                children: []
-            },
-            "decoder_ic": {
-                id: "decoder_ic",
-                x: 780, y: 0,
-                stage: -1,
-                maxStage: 1,
-                stages: [
-                    { title: "Dual H-Bridge Driver V1", type: "Power Actuator", desc: "Standard dual channel motor control IC.", symbol: "h_bridge_v1" },
-                    { title: "Quad MOSFET Driver Board V2", type: "Power Actuator", desc: "High-efficiency MOSFET power driver with thermal heatsinks.", symbol: "h_bridge_v2" }
-                ],
-                prereqs: [ { node: "rf_receiver", stage: 0 } ],
-                children: ["servo_fl", "servo_fr", "servo_rl", "servo_rr"]
-            },
-
-            // 7. 4 INDEPENDENT WHEEL / SERVO ACTUATORS
-            "servo_fl": {
-                id: "servo_fl",
-                x: 940, y: -140,
-                stage: -1,
-                maxStage: 1,
-                stages: [
-                    { title: "Front-Left Servo V1", type: "Actuator", desc: "Micro servo actuator for front-left wheel.", symbol: "servo_v1" },
-                    { title: "Heavy Metal Gear Servo V2", type: "Actuator", desc: "High-torque steel gear steering servo with position feedback.", symbol: "servo_v2" }
-                ],
-                prereqs: [ { node: "decoder_ic", stage: 0 } ],
-                children: []
-            },
-            "servo_fr": {
-                id: "servo_fr",
-                x: 1080, y: -140,
-                stage: -1,
-                maxStage: 1,
-                stages: [
-                    { title: "Front-Right Servo V1", type: "Actuator", desc: "Micro servo actuator for front-right wheel.", symbol: "servo_v1" },
-                    { title: "Heavy Metal Gear Servo V2", type: "Actuator", desc: "High-torque steel gear steering servo with position feedback.", symbol: "servo_v2" }
-                ],
-                prereqs: [ { node: "decoder_ic", stage: 0 } ],
-                children: []
-            },
-            "servo_rl": {
-                id: "servo_rl",
-                x: 940, y: 140,
-                stage: -1,
-                maxStage: 1,
-                stages: [
-                    { title: "Rear-Left DC Motor V1", type: "Traction Motor", desc: "Standard Brushed DC Motor.", symbol: "motor_v1" },
-                    { title: "Brushless Motor & Gearbox V2", type: "Traction Motor", desc: "High-efficiency brushless traction motor with planetary gearbox.", symbol: "motor_v2" }
-                ],
-                prereqs: [ { node: "decoder_ic", stage: 0 } ],
-                children: []
-            },
-            "servo_rr": {
-                id: "servo_rr",
-                x: 1080, y: 140,
-                stage: -1,
-                maxStage: 1,
-                stages: [
-                    { title: "Rear-Right DC Motor V1", type: "Traction Motor", desc: "Standard Brushed DC Motor.", symbol: "motor_v1" },
-                    { title: "Brushless Motor & Gearbox V2", type: "Traction Motor", desc: "High-efficiency brushless traction motor with planetary gearbox.", symbol: "motor_v2" }
-                ],
-                prereqs: [ { node: "decoder_ic", stage: 0 } ],
-                children: []
-            }
+        // Game State
+        let state = {
+            phase: 'setup', // 'setup', 'move', 'attack', 'promotion', 'gameover'
+            round: 1,
+            playerCards: [],
+            enemyCards: [],
+            selectedSetupCardId: null,
+            snakeQueue: [], // Array of { owner: 'player'|'enemy', slotIndex: 0..4 }
+            queuePointer: 0,
+            activeCardId: null,
+            pendingPromotions: [], // Array of fallen elements waiting for player promotion choice
+            lastAttackerId: null
         };
 
-        // SCHEMATIC WIRE CONNECTIONS (INCLUDES EXPANDED PROCESSOR BOARD & KEYPAD BUS)
-        const schematicTraces = [
-            // Base Loop
-            { id: "t1", from: "power_source", to: "switch_module", color: "#f59e0b", type: "power" },
-            { id: "t2", from: "switch_module", to: "light_output", color: "#38bdf8", type: "logic" },
-            { id: "t3", from: "light_output", to: "power_source", color: "#f59e0b", type: "power" },
+        // Initialize fresh match
+        function initGame() {
+            state.phase = 'setup';
+            state.round = 1;
+            state.selectedSetupCardId = null;
+            state.snakeQueue = [];
+            state.queuePointer = 0;
+            state.activeCardId = null;
+            state.pendingPromotions = [];
 
-            // Parallel Power & Transformer Branch
-            { id: "t4", from: "power_source", to: "power_transformer", color: "#f59e0b", type: "power", minStage: { power_source: 1 } },
-            { id: "t5", from: "power_transformer", to: "protection_block", color: "#e879f9", type: "hv", minStage: { power_transformer: 0 } },
-            { id: "t6", from: "power_transformer", to: "heatsink_bus", color: "#e879f9", type: "hv", minStage: { power_transformer: 0 } },
-            { id: "t7", from: "protection_block", to: "heatsink_bus", color: "#e879f9", type: "hv", minStage: { protection_block: 1 } },
-            { id: "t8", from: "power_transformer", to: "light_output", color: "#f59e0b", type: "power", minStage: { power_transformer: 1 } },
+            // Create 5 cards for Player (slot 1 to 5 determines Snake Draft priority)
+            const rosterOrder = ['fire', 'water', 'earth', 'air', 'cloud'];
+            state.playerCards = rosterOrder.map((type, idx) => createCard('player', idx + 1, type));
+            state.enemyCards = rosterOrder.map((type, idx) => createCard('enemy', idx + 1, type));
 
-            // Decomposed Logic Processor Board Connections
-            { id: "t9", from: "switch_module", to: "input_demux", color: "#38bdf8", type: "logic", minStage: { input_demux: 0 } },
-            { id: "t9_b", from: "input_demux", to: "logic_gates", color: "#38bdf8", type: "logic", minStage: { logic_gates: 0 } },
-            { id: "t10", from: "light_output", to: "logic_gates", color: "#38bdf8", type: "logic", minStage: { logic_gates: 0 } },
-            { id: "t_clk", from: "clock_oscillator", to: "mcu_core", color: "#c084fc", type: "clock", minStage: { clock_oscillator: 0 } },
-            { id: "t_lg_mcu", from: "logic_gates", to: "mcu_core", color: "#38bdf8", type: "logic", minStage: { mcu_core: 0 } },
-            { id: "t_pwm", from: "mcu_core", to: "pwm_driver", color: "#c084fc", type: "clock", minStage: { pwm_driver: 0 } },
+            // Select first unplaced card automatically
+            state.selectedSetupCardId = state.playerCards[0].id;
 
-            // Multi-Trace Matrix Keypad Lines (4 distinct parallel paths into Demux Buffer)
-            { id: "t11_up", from: "tactile_keypad", to: "input_demux", color: "#38bdf8", type: "logic_bus", offset: -12, minStage: { tactile_keypad: 0 } },
-            { id: "t11_dn", from: "tactile_keypad", to: "input_demux", color: "#38bdf8", type: "logic_bus", offset: -4, minStage: { tactile_keypad: 0 } },
-            { id: "t11_lt", from: "tactile_keypad", to: "input_demux", color: "#38bdf8", type: "logic_bus", offset: 4, minStage: { tactile_keypad: 0 } },
-            { id: "t11_rt", from: "tactile_keypad", to: "input_demux", color: "#38bdf8", type: "logic_bus", offset: 12, minStage: { tactile_keypad: 0 } },
+            document.getElementById('gameover-modal').classList.add('hidden');
+            document.getElementById('promotion-overlay').classList.add('hidden');
+            document.getElementById('snake-queue-container').classList.add('hidden');
+            document.getElementById('setup-tray').classList.remove('hidden');
+            document.getElementById('combat-controls').classList.add('hidden');
+            document.getElementById('phase-badge').textContent = 'Setup Phase';
+            document.getElementById('phase-badge').className = 'px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase bg-sky-500/20 text-sky-300 border border-sky-500/30';
+            document.getElementById('active-unit-badge').textContent = '';
+            document.getElementById('instruction-text').textContent = 'Click a fighter below, then click any square on your 3×5 grid to deploy it. Order #1–#5 sets your turn order!';
+            document.getElementById('battle-log').innerHTML = '<div class="text-slate-400 italic">Deploy your 5 cards in secret to begin...</div>';
 
-            // Wireless Bridge
-            { id: "t12", from: "mcu_core", to: "rf_transmitter", color: "#38bdf8", type: "logic", minStage: { rf_transmitter: 0 } },
-            { id: "t12_pwm", from: "pwm_driver", to: "rf_transmitter", color: "#c084fc", type: "clock", minStage: { rf_transmitter: 0 } },
-            { id: "t13", from: "rf_transmitter", to: "rf_receiver", color: "#10b981", type: "wireless", minStage: { rf_receiver: 0 } },
-
-            // Robot Chassis Internal Traces
-            { id: "t14", from: "rf_receiver", to: "camera_module", color: "#10b981", type: "logic", minStage: { camera_module: 0 } },
-            { id: "t15", from: "rf_receiver", to: "decoder_ic", color: "#10b981", type: "logic", minStage: { decoder_ic: 0 } },
-            { id: "t16_fl", from: "decoder_ic", to: "servo_fl", color: "#f59e0b", type: "power", minStage: { servo_fl: 0 } },
-            { id: "t16_fr", from: "decoder_ic", to: "servo_fr", color: "#f59e0b", type: "power", minStage: { servo_fr: 0 } },
-            { id: "t16_rl", from: "decoder_ic", to: "servo_rl", color: "#f59e0b", type: "power", minStage: { servo_rl: 0 } },
-            { id: "t16_rr", from: "decoder_ic", to: "servo_rr", color: "#f59e0b", type: "power", minStage: { servo_rr: 0 } }
-        ];
-
-        // --- HELPER & STATE CHECKS ---
-        function checkPrereqs(node) {
-            if (!node || !node.prereqs) return true;
-            for (let req of node.prereqs) {
-                const target = nodesData[req.node];
-                if (!target || target.stage < req.stage) return false;
-            }
-            return true;
+            renderAll();
         }
 
-        function isTraceActive(trace) {
-            const fromNode = nodesData[trace.from];
-            const toNode = nodesData[trace.to];
+        function createCard(owner, slotNum, type) {
+            return {
+                id: `${owner}_${slotNum}_${Math.random().toString(36).substring(2, 6)}`,
+                owner,
+                slotNum, // 1 to 5
+                originalType: type,
+                type: type,
+                hp: BASE_HP,
+                maxHp: BASE_HP,
+                atk: BASE_ATK,
+                baseDef: BASE_DEF,
+                row: null, // 0..2
+                col: null, // 0..4
+                alive: true,
+                promoted: false
+            };
+        }
 
-            if (!fromNode || !toNode || fromNode.stage < 0 || toNode.stage < 0) return false;
-            if (trace.minStage) {
-                for (let key in trace.minStage) {
-                    const n = nodesData[key];
-                    if (!n || n.stage < trace.minStage[key]) return false;
+        // --- ADJACENCY & DEFENSE CALCULATIONS ---
+
+        /**
+         * Returns orthogonal neighbors of a card on its own 3x5 board
+         */
+        function getNeighbors(card) {
+            if (!card.alive || card.row === null || card.col === null) return [];
+            const pool = card.owner === 'player' ? state.playerCards : state.enemyCards;
+            return pool.filter(other =>
+                other.alive &&
+                other.id !== card.id &&
+                other.row !== null &&
+                (Math.abs(other.row - card.row) + Math.abs(other.col - card.col) === 1)
+            );
+        }
+
+        /**
+         * Calculates exact defense of `defender` against an incoming attack of `attackerElement`.
+         * Rules:
+         * - Base Defense = 20
+         * - Each orthogonal ally checks its element vs `attackerElement`:
+         *   - Ally beats attackerElement (Strong support): +30% (+6 DEF)
+         *   - Ally is weak to attackerElement (Clashing/Weak support): -15% (-3 DEF)
+         *   - Otherwise (Neutral / Same element): +10% (+2 DEF)
+         */
+        function calculateDefenseAgainst(defender, attackerElement) {
+            const neighbors = getNeighbors(defender);
+            let totalDef = defender.baseDef;
+
+            neighbors.forEach(ally => {
+                const allyInfo = ELEMENTS[ally.type];
+                if (attackerElement && allyInfo.beats === attackerElement) {
+                    totalDef += 6; // +30% of 20
+                } else if (attackerElement && allyInfo.weakTo === attackerElement) {
+                    totalDef -= 3; // -15% of 20
+                } else {
+                    totalDef += 2; // +10% of 20 (neutral or same)
                 }
-            }
-            return true;
+            });
+
+            return Math.max(0, totalDef);
         }
 
-        function initParticles() {
-            electronParticles = [];
-            for (let i = 0; i < 65; i++) {
-                electronParticles.push({
-                    traceIdx: Math.floor(Math.random() * schematicTraces.length),
-                    progress: Math.random(),
-                    speed: 0.003 + Math.random() * 0.004
-                });
-            }
-        }
-        initParticles();
-
-        // --- RF & SERVO KINETIC TRIGGER ---
-        function triggerRFWave(dir) {
-            const tx = nodesData["rf_transmitter"];
-            const rx = nodesData["rf_receiver"];
-            if (tx && rx && tx.stage >= 0 && rx.stage >= 0) {
-                rfWaves.push({
-                    x: tx.x, y: tx.y,
-                    targetX: rx.x, targetY: rx.y,
-                    radius: 10,
-                    maxRadius: Math.hypot(rx.x - tx.x, rx.y - tx.y),
-                    alpha: 1.0,
-                    direction: dir
-                });
-
-                const mapDirToServos = {
-                    'up': ['fl', 'fr', 'rl', 'rr'],
-                    'down': ['fl', 'fr', 'rl', 'rr'],
-                    'left': ['fl', 'rl'],
-                    'right': ['fr', 'rr']
+        /**
+         * Summarizes a card's current defense profile for UI display:
+         * - neutralDef: Defense against a Neutral (Air/Cloud) attack (20 + 2 per neighbor)
+         * - specificModifiers: Array of { element, diff, icon } showing how defense shifts against Fire, Water, Earth
+         */
+        function getDefenseSummary(card) {
+            const neutralDef = calculateDefenseAgainst(card, 'air');
+            const specific = ['fire', 'water', 'earth'].map(el => {
+                const defVsEl = calculateDefenseAgainst(card, el);
+                const diff = defVsEl - neutralDef;
+                return {
+                    element: el,
+                    icon: ELEMENTS[el].icon,
+                    total: defVsEl,
+                    diff
                 };
-
-                const targets = mapDirToServos[dir] || [];
-                targets.forEach(sKey => {
-                    servoStates[sKey].tilt = (dir === 'left' ? -0.3 : (dir === 'right' ? 0.3 : (dir === 'up' ? 0.2 : -0.2)));
-                    servoStates[sKey].vibe = 14;
-
-                    const sNode = nodesData[`servo_${sKey}`];
-                    if (sNode && sNode.stage >= 0) {
-                        for (let k = 0; k < 6; k++) {
-                            actuatorSparks.push({
-                                x: sNode.x, y: sNode.y,
-                                vx: (Math.random() - 0.5) * 5,
-                                vy: (Math.random() - 0.5) * 5,
-                                radius: 2 + Math.random() * 4,
-                                life: 1.0
-                            });
-                        }
-                    }
-                });
-            }
+            });
+            return { neutralDef, specific };
         }
 
-        // --- DISTINCT RENDER COMPONENT SYMBOLS FOR EVERY STAGE ---
-        function drawSymbol(ctx, symbol, x, y, stage) {
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.lineWidth = 2;
-            ctx.strokeStyle = "#38bdf8";
-            ctx.fillStyle = "#38bdf8";
+        /**
+         * Calculates full combat preview when `attacker` targets `intendedTarget`
+         * Takes into account Front-Line Cover (Obstruction) and Elemental Matchups.
+         */
+        function calculateCombatOutcome(attacker, intendedTarget) {
+            const actualTarget = resolveCoverTarget(intendedTarget);
+            const intercepted = actualTarget.id !== intendedTarget.id;
 
-            switch(symbol) {
-                case "battery_coin":
-                    ctx.beginPath(); ctx.arc(0, 0, 16, 0, Math.PI * 2); ctx.stroke();
-                    ctx.font = "10px Fira Code"; ctx.fillText("+3V", -10, 4);
-                    break;
-                case "battery_aa":
-                    ctx.strokeRect(-18, -12, 36, 24);
-                    ctx.fillRect(18, -6, 4, 12);
-                    ctx.font = "9px Fira Code"; ctx.fillText("1.5V x 2", -16, 3);
-                    break;
-                case "battery_lipo":
-                    ctx.strokeStyle = "#f59e0b";
-                    ctx.strokeRect(-22, -15, 44, 30);
-                    ctx.strokeRect(-16, -10, 32, 20);
-                    ctx.font = "9px Fira Code"; ctx.fillStyle = "#f59e0b"; ctx.fillText("LiPo 7.4V", -20, 3);
-                    break;
-                case "power_usb":
-                    ctx.strokeStyle = "#f59e0b"; ctx.fillStyle = "#f59e0b";
-                    ctx.strokeRect(-24, -18, 48, 36);
-                    ctx.strokeRect(-18, -12, 12, 24);
-                    ctx.beginPath(); ctx.arc(10, 0, 6, 0, Math.PI * 2); ctx.stroke();
-                    ctx.font = "8px Fira Code"; ctx.fillText("HYBRID", -14, 14);
-                    break;
+            const atkInfo = ELEMENTS[attacker.type];
+            let effectiveAtk = attacker.atk;
+            let matchupLabel = 'Neutral';
 
-                case "buck_regulator":
-                    ctx.strokeStyle = "#f59e0b";
-                    ctx.strokeRect(-20, -16, 40, 32);
-                    ctx.beginPath(); ctx.arc(-8, 0, 6, 0, Math.PI*2); ctx.stroke();
-                    ctx.font = "8px Fira Code"; ctx.fillStyle = "#f59e0b"; ctx.fillText("BUCK 5V", -18, 12);
-                    break;
-                case "transformer_module":
-                    ctx.strokeStyle = "#e879f9";
-                    ctx.strokeRect(-22, -18, 44, 36);
-                    ctx.beginPath(); ctx.arc(-8, 0, 8, 0, Math.PI*2); ctx.stroke();
-                    ctx.beginPath(); ctx.arc(8, 0, 8, 0, Math.PI*2); ctx.stroke();
-                    break;
-                case "substation_array":
-                    ctx.strokeStyle = "#e879f9"; ctx.fillStyle = "#e879f9";
-                    ctx.strokeRect(-26, -20, 52, 40);
-                    ctx.strokeRect(-20, -14, 14, 28);
-                    ctx.strokeRect(6, -14, 14, 28);
-                    break;
-
-                case "resistor":
-                    ctx.beginPath();
-                    ctx.moveTo(-20, 0); ctx.lineTo(-12, -8); ctx.lineTo(-4, 8);
-                    ctx.lineTo(4, -8); ctx.lineTo(12, 8); ctx.lineTo(20, 0);
-                    ctx.stroke();
-                    break;
-                case "fuse_pot":
-                    ctx.strokeRect(-16, -8, 32, 16);
-                    ctx.beginPath(); ctx.moveTo(-22, 0); ctx.lineTo(22, 0); ctx.stroke();
-                    ctx.beginPath(); ctx.moveTo(-10, 12); ctx.lineTo(10, -12); ctx.lineTo(6, -12); ctx.stroke();
-                    break;
-                case "filter_array":
-                    for (let dx of [-8, 8]) {
-                        ctx.beginPath(); ctx.moveTo(dx, -12); ctx.lineTo(dx, 12); ctx.stroke();
-                        ctx.beginPath(); ctx.moveTo(dx-4, -12); ctx.lineTo(dx-4, 12); ctx.stroke();
-                    }
-                    break;
-
-                // Heat Sink V1 vs V2 Distinct Graphics
-                case "heatsink_v1":
-                    ctx.strokeStyle = "#e879f9";
-                    for (let i = -16; i <= 16; i += 8) {
-                        ctx.beginPath(); ctx.moveTo(i, 10); ctx.lineTo(i, -10); ctx.stroke();
-                    }
-                    ctx.strokeRect(-20, -12, 40, 24);
-                    break;
-                case "heatsink_v2":
-                    ctx.strokeStyle = "#f43f5e"; ctx.fillStyle = "#f43f5e";
-                    ctx.strokeRect(-24, -16, 48, 32);
-                    for (let i = -20; i <= 20; i += 5) {
-                        ctx.beginPath(); ctx.moveTo(i, 14); ctx.lineTo(i, -14); ctx.stroke();
-                    }
-                    // Dual Fan Circles
-                    ctx.beginPath(); ctx.arc(-10, 0, 8, 0, Math.PI*2); ctx.stroke();
-                    ctx.beginPath(); ctx.arc(10, 0, 8, 0, Math.PI*2); ctx.stroke();
-                    const fanAngle = Date.now() / 150;
-                    ctx.beginPath(); ctx.arc(-10, 0, 5, fanAngle, fanAngle + 2); ctx.stroke();
-                    ctx.beginPath(); ctx.arc(10, 0, 5, -fanAngle, -fanAngle + 2); ctx.stroke();
-                    break;
-
-                case "wire":
-                    ctx.beginPath(); ctx.moveTo(-15, 0); ctx.lineTo(15, 0); ctx.stroke();
-                    break;
-                case "knife_switch":
-                    ctx.beginPath(); ctx.arc(-12, 0, 3, 0, Math.PI*2); ctx.stroke();
-                    ctx.beginPath(); ctx.arc(12, 0, 3, 0, Math.PI*2); ctx.stroke();
-                    ctx.beginPath(); ctx.moveTo(-12, 0); ctx.lineTo(8, -12); ctx.stroke();
-                    break;
-                case "transistor":
-                    ctx.beginPath(); ctx.arc(0, 0, 14, 0, Math.PI*2); ctx.stroke();
-                    ctx.beginPath(); ctx.moveTo(-6, -8); ctx.lineTo(-6, 8); ctx.stroke();
-                    ctx.beginPath(); ctx.moveTo(-6, -4); ctx.lineTo(8, -10); ctx.stroke();
-                    ctx.beginPath(); ctx.moveTo(-6, 4); ctx.lineTo(8, 10); ctx.stroke();
-                    break;
-                case "timer_555":
-                    ctx.strokeRect(-18, -18, 36, 36);
-                    ctx.font = "9px Fira Code"; ctx.fillText("555", -8, 3);
-                    break;
-                case "bulb":
-                    ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI * 2); ctx.stroke();
-                    ctx.beginPath(); ctx.moveTo(-6, 6); ctx.lineTo(0, -4); ctx.lineTo(6, 6); ctx.stroke();
-                    break;
-                case "dual_bulb":
-                    ctx.beginPath(); ctx.arc(-12, 0, 10, 0, Math.PI * 2); ctx.stroke();
-                    ctx.beginPath(); ctx.moveTo(-16, 5); ctx.lineTo(-12, -3); ctx.lineTo(-8, 5); ctx.stroke();
-                    ctx.beginPath(); ctx.arc(12, 0, 10, 0, Math.PI * 2); ctx.stroke();
-                    ctx.beginPath(); ctx.moveTo(8, 5); ctx.lineTo(12, -3); ctx.lineTo(16, 5); ctx.stroke();
-                    break;
-                case "relay":
-                    ctx.strokeRect(-16, -14, 32, 28);
-                    ctx.beginPath(); ctx.moveTo(-10, -8); ctx.lineTo(-10, 8); ctx.lineTo(0, -8); ctx.lineTo(0, 8); ctx.stroke();
-                    break;
-                case "led_array":
-                    ctx.strokeStyle = "#38bdf8"; ctx.fillStyle = "#38bdf8";
-                    for (let row = -1; row <= 1; row += 2) {
-                        for (let col = -3; col <= 3; col += 2) {
-                            ctx.beginPath(); ctx.arc(col * 6, row * 6, 2.5, 0, Math.PI*2); ctx.fill();
-                        }
-                    }
-                    ctx.strokeRect(-24, -14, 48, 28);
-                    break;
-
-                // Decomposed Processor Board Symbols
-                case "demux_buffer":
-                    ctx.strokeRect(-16, -16, 32, 32);
-                    ctx.beginPath(); ctx.moveTo(-10, -10); ctx.lineTo(10, 0); ctx.lineTo(-10, 10); ctx.closePath(); ctx.stroke();
-                    break;
-                case "demux_ic":
-                    ctx.strokeStyle = "#38bdf8";
-                    ctx.strokeRect(-20, -16, 40, 32);
-                    ctx.font = "8px Fira Code"; ctx.fillText("74HC138", -18, 3);
-                    break;
-                case "nand_gates":
-                    ctx.strokeRect(-18, -14, 20, 28);
-                    ctx.beginPath(); ctx.arc(2, 0, 14, -Math.PI/2, Math.PI/2); ctx.stroke();
-                    ctx.beginPath(); ctx.arc(18, 0, 3, 0, Math.PI*2); ctx.stroke();
-                    break;
-                case "logic_array":
-                    ctx.strokeRect(-22, -18, 44, 36);
-                    ctx.font = "8px Fira Code"; ctx.fillText("XOR-MATRIX", -22, 3);
-                    break;
-                case "alu_core":
-                    ctx.strokeRect(-22, -18, 44, 36);
-                    ctx.font = "9px Fira Code"; ctx.fillText("4-BIT ALU", -20, 3);
-                    break;
-                case "crystal_osc":
-                    ctx.strokeStyle = "#c084fc";
-                    ctx.beginPath(); ctx.arc(0, 0, 14, 0, Math.PI*2); ctx.stroke();
-                    ctx.strokeRect(-8, -8, 16, 16);
-                    ctx.font = "8px Fira Code"; ctx.fillStyle = "#c084fc"; ctx.fillText("16MHz", -12, 22);
-                    break;
-                case "microcontroller":
-                    ctx.strokeRect(-22, -22, 44, 44);
-                    for (let i = -16; i <= 16; i += 8) {
-                        ctx.strokeRect(i-2, -26, 4, 4);
-                        ctx.strokeRect(i-2, 22, 4, 4);
-                    }
-                    ctx.font = "8px Fira Code"; ctx.fillText("ATmega", -15, 3);
-                    break;
-                case "dual_mcu":
-                    ctx.strokeStyle = "#38bdf8"; ctx.fillStyle = "#38bdf8";
-                    ctx.strokeRect(-24, -24, 48, 48);
-                    ctx.strokeRect(-16, -16, 14, 32); ctx.strokeRect(2, -16, 14, 32);
-                    ctx.font = "7px Fira Code"; ctx.fillText("DUAL CORE", -18, 20);
-                    break;
-                case "pwm_ic":
-                    ctx.strokeStyle = "#c084fc";
-                    ctx.strokeRect(-20, -16, 40, 32);
-                    ctx.font = "8px Fira Code"; ctx.fillStyle = "#c084fc"; ctx.fillText("PCA9685", -18, 3);
-                    break;
-                case "keypad":
-                    ctx.strokeRect(-22, -22, 44, 44);
-                    ctx.font = "10px Fira Code"; ctx.fillText("▲", -3, -8);
-                    ctx.fillText("◄", -15, 4); ctx.fillText("►", 8, 4); ctx.fillText("▼", -3, 16);
-                    break;
-
-                // Distinct RF Tx/Rx V1 vs V2
-                case "transmitter_v1":
-                    ctx.strokeRect(-18, -18, 36, 36);
-                    ctx.beginPath(); ctx.moveTo(0, -18); ctx.lineTo(0, -30); ctx.stroke();
-                    ctx.beginPath(); ctx.arc(0, -30, 4, 0, Math.PI*2); ctx.stroke();
-                    ctx.font = "8px Fira Code"; ctx.fillText("TX 433", -14, 3);
-                    break;
-                case "transmitter_v2":
-                    ctx.strokeStyle = "#10b981"; ctx.fillStyle = "#10b981";
-                    ctx.strokeRect(-22, -20, 44, 40);
-                    ctx.beginPath(); ctx.moveTo(-8, -20); ctx.lineTo(-8, -34); ctx.stroke();
-                    ctx.beginPath(); ctx.moveTo(8, -20); ctx.lineTo(8, -34); ctx.stroke();
-                    ctx.font = "8px Fira Code"; ctx.fillText("2.4G DUAL", -18, 3);
-                    break;
-                case "receiver_v1":
-                    ctx.strokeStyle = "#10b981"; ctx.fillStyle = "#10b981";
-                    ctx.strokeRect(-18, -18, 36, 36);
-                    ctx.beginPath(); ctx.moveTo(0, -18); ctx.lineTo(0, -30); ctx.stroke();
-                    ctx.beginPath(); ctx.arc(0, -30, 4, 0, Math.PI*2); ctx.fill();
-                    ctx.font = "8px Fira Code"; ctx.fillText("RX 433", -14, 3);
-                    break;
-                case "receiver_v2":
-                    ctx.strokeStyle = "#10b981"; ctx.fillStyle = "#10b981";
-                    ctx.strokeRect(-22, -22, 44, 44);
-                    ctx.beginPath(); ctx.arc(0, -22, 10, -Math.PI, 0); ctx.stroke();
-                    ctx.font = "8px Fira Code"; ctx.fillText("LNA RX-2", -18, 3);
-                    break;
-
-                // Distinct Camera V1 vs V2
-                case "camera_v1":
-                    ctx.strokeStyle = "#10b981"; ctx.fillStyle = "#10b981";
-                    ctx.strokeRect(-20, -14, 40, 28);
-                    ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI*2); ctx.stroke();
-                    break;
-                case "camera_v2":
-                    ctx.strokeStyle = "#10b981"; ctx.fillStyle = "#10b981";
-                    ctx.strokeRect(-24, -16, 48, 32);
-                    ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI*2); ctx.stroke();
-                    ctx.beginPath(); ctx.arc(-14, -8, 3, 0, Math.PI*2); ctx.fill();
-                    ctx.beginPath(); ctx.arc(14, -8, 3, 0, Math.PI*2); ctx.fill();
-                    ctx.font = "7px Fira Code"; ctx.fillText("HD FOV", -12, 12);
-                    break;
-
-                // Distinct H-Bridge V1 vs V2
-                case "h_bridge_v1":
-                    ctx.strokeStyle = "#10b981";
-                    ctx.strokeRect(-24, -20, 48, 40);
-                    ctx.font = "9px Fira Code"; ctx.fillStyle = "#10b981"; ctx.fillText("L298N DUAL", -22, 3);
-                    break;
-                case "h_bridge_v2":
-                    ctx.strokeStyle = "#10b981"; ctx.fillStyle = "#10b981";
-                    ctx.strokeRect(-26, -22, 52, 44);
-                    for (let xOff of [-12, 12]) {
-                        ctx.strokeRect(xOff - 6, -14, 12, 28);
-                    }
-                    ctx.font = "7px Fira Code"; ctx.fillText("MOSFET QUAD", -22, 16);
-                    break;
-
-                // Distinct Servo V1 vs V2
-                case "servo_v1":
-                    ctx.strokeStyle = "#f59e0b";
-                    ctx.strokeRect(-14, -14, 28, 28);
-                    ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI*2); ctx.stroke();
-                    break;
-                case "servo_v2":
-                    ctx.strokeStyle = "#f59e0b"; ctx.fillStyle = "#f59e0b";
-                    ctx.strokeRect(-18, -18, 36, 36);
-                    ctx.strokeRect(-14, -14, 28, 28);
-                    ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI*2); ctx.fill();
-                    ctx.font = "7px Fira Code"; ctx.fillText("STEEL", -10, 12);
-                    break;
-
-                // Distinct Motor V1 vs V2
-                case "motor_v1":
-                    ctx.strokeStyle = "#f59e0b";
-                    ctx.beginPath(); ctx.arc(0, 0, 14, 0, Math.PI*2); ctx.stroke();
-                    ctx.font = "9px Fira Code"; ctx.fillText("DC", -6, 3);
-                    break;
-                case "motor_v2":
-                    ctx.strokeStyle = "#f59e0b"; ctx.fillStyle = "#f59e0b";
-                    ctx.strokeRect(-18, -16, 36, 32);
-                    ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI*2); ctx.stroke();
-                    ctx.font = "7px Fira Code"; ctx.fillText("BRUSHLESS", -18, 12);
-                    break;
-
-                default:
-                    ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.stroke();
+            if (atkInfo.beats === actualTarget.type) {
+                effectiveAtk = Math.round(attacker.atk * 1.20); // 66 ATK (+20%)
+                matchupLabel = 'Super Effective (+20% ATK)';
+            } else if (atkInfo.weakTo === actualTarget.type) {
+                effectiveAtk = Math.round(attacker.atk * 0.80); // 44 ATK (-20%)
+                matchupLabel = 'Resisted (-20% ATK)';
             }
 
-            ctx.restore();
+            const effectiveDef = calculateDefenseAgainst(actualTarget, attacker.type);
+            const damage = Math.max(5, effectiveAtk - effectiveDef);
+
+            return {
+                intendedTarget,
+                actualTarget,
+                intercepted,
+                effectiveAtk,
+                effectiveDef,
+                damage,
+                matchupLabel
+            };
         }
 
-        // --- MAIN CANVAS RENDER ENGINE ---
-        function render() {
-            ctx.save();
-            ctx.clearRect(0, 0, width, height);
+        /**
+         * Front-Line Cover Rule:
+         * - For Player grid: Row 0 is Front, Row 2 is Back. A solid card in a smaller row index in the same column intercepts.
+         * - For Enemy grid: Row 2 is Front, Row 0 is Back. A solid card in a larger row index in the same column intercepts.
+         * - Air & Cloud are transparent (solid === false) and NEVER intercept.
+         */
+        function resolveCoverTarget(target) {
+            const pool = target.owner === 'player' ? state.playerCards : state.enemyCards;
+            const sameColCards = pool.filter(c => c.alive && c.col === target.col && c.id !== target.id);
 
-            ctx.translate(panX, panY);
-            ctx.scale(scale, scale);
-
-            // 1. PROCESSOR BOARD EXPLICIT SUB-CIRCUIT OUTLINE
-            const demuxNode = nodesData["input_demux"];
-            if (demuxNode && demuxNode.stage >= 0) {
-                ctx.save();
-                ctx.strokeStyle = "rgba(56, 189, 248, 0.25)";
-                ctx.lineWidth = 2;
-                ctx.setLineDash([6, 4]);
-                ctx.strokeRect(-140, -60, 480, 240);
-                
-                ctx.fillStyle = "rgba(56, 189, 248, 0.4)";
-                ctx.font = "10px Fira Code";
-                ctx.fillText("PROCESSOR & LOGIC SYSTEM BOARD", -125, -45);
-                ctx.restore();
-            }
-
-            // 2. ROBOT CHASSIS BOARD OUTLINE
-            const rxNode = nodesData["rf_receiver"];
-            if (rxNode && rxNode.stage >= 0) {
-                ctx.save();
-                ctx.strokeStyle = "rgba(16, 185, 129, 0.3)";
-                ctx.lineWidth = 2;
-                ctx.setLineDash([8, 6]);
-                ctx.strokeRect(550, -220, 620, 440);
-                
-                ctx.fillStyle = "rgba(16, 185, 129, 0.5)";
-                ctx.font = "10px Fira Code";
-                ctx.fillText("MOBILE ROBOT CHASSIS SUB-BOARD", 565, -200);
-
-                // Optical Camera Scan Wave Visual
-                const camNode = nodesData["camera_module"];
-                if (camNode && camNode.stage >= 0) {
-                    const scanAngle = (Date.now() / 400) % Math.PI - Math.PI/2;
-                    ctx.strokeStyle = "rgba(16, 185, 129, 0.3)";
-                    ctx.fillStyle = "rgba(16, 185, 129, 0.08)";
-                    ctx.beginPath();
-                    ctx.moveTo(camNode.x, camNode.y);
-                    ctx.arc(camNode.x, camNode.y, 80, scanAngle - 0.35, scanAngle + 0.35);
-                    ctx.closePath();
-                    ctx.fill();
-                    ctx.stroke();
+            if (target.owner === 'player') {
+                // Check from frontmost (row 0) up to target.row - 1
+                for (let r = 0; r < target.row; r++) {
+                    const blocker = sameColCards.find(c => c.row === r && ELEMENTS[c.type].solid);
+                    if (blocker) return blocker;
                 }
-
-                ctx.restore();
-            }
-
-            // 3. RENDER SCHEMATIC TRACES
-            for (let trace of schematicTraces) {
-                const fromNode = nodesData[trace.from];
-                const toNode = nodesData[trace.to];
-
-                if (!fromNode || !toNode || fromNode.stage < 0 || toNode.stage < 0) continue;
-                if (!isTraceActive(trace)) continue;
-
-                ctx.save();
-                ctx.lineWidth = 2.5;
-
-                if (trace.type === "wireless") {
-                    ctx.strokeStyle = "#10b981";
-                    ctx.setLineDash([4, 8]);
-                } else if (trace.type === "clock") {
-                    ctx.strokeStyle = "#c084fc";
-                } else {
-                    ctx.strokeStyle = trace.color || "#38bdf8";
-                }
-
-                const offset = trace.offset || 0;
-                ctx.beginPath();
-                ctx.moveTo(fromNode.x + offset, fromNode.y + offset);
-
-                const midX = (fromNode.x + toNode.x) / 2 + offset;
-                ctx.lineTo(midX, fromNode.y + offset);
-                ctx.lineTo(midX, toNode.y + offset);
-                ctx.lineTo(toNode.x + offset, toNode.y + offset);
-                ctx.stroke();
-
-                ctx.restore();
-            }
-
-            // 4. THERMAL HEAT DISSIPATION PARTICLES (V1 vs V2 DISPERSION)
-            const hsNode = nodesData["heatsink_bus"];
-            if (hsNode && hsNode.stage >= 0) {
-                const isV2 = hsNode.stage >= 1;
-                const spawnRate = isV2 ? 0.8 : 0.3;
-                
-                if (Math.random() < spawnRate) {
-                    heatParticles.push({
-                        x: hsNode.x + (Math.random() - 0.5) * (isV2 ? 46 : 30),
-                        y: hsNode.y - 10,
-                        vx: (Math.random() - 0.5) * (isV2 ? 1.6 : 0.6),
-                        vy: -1 - Math.random() * (isV2 ? 2.5 : 1.2),
-                        life: 1.0,
-                        size: (isV2 ? 4 : 2.5) + Math.random() * 3,
-                        color: isV2 ? "244, 63, 94" : "245, 158, 11"
-                    });
+            } else {
+                // Enemy grid: frontmost is row 2, check down to target.row + 1
+                for (let r = 2; r > target.row; r--) {
+                    const blocker = sameColCards.find(c => c.row === r && ELEMENTS[c.type].solid);
+                    if (blocker) return blocker;
                 }
             }
-
-            for (let i = heatParticles.length - 1; i >= 0; i--) {
-                const hp = heatParticles[i];
-                hp.x += hp.vx;
-                hp.y += hp.vy;
-                hp.life -= 0.02;
-
-                if (hp.life <= 0) {
-                    heatParticles.splice(i, 1);
-                    continue;
-                }
-
-                ctx.save();
-                ctx.fillStyle = `rgba(${hp.color}, ${hp.life * 0.7})`;
-                ctx.beginPath();
-                ctx.arc(hp.x, hp.y, hp.size, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.restore();
-            }
-
-            // 5. ELECTRON CURRENT FLOW PARTICLES
-            for (let p of electronParticles) {
-                const trace = schematicTraces[p.traceIdx];
-                if (isTraceActive(trace)) {
-                    const fromNode = nodesData[trace.from];
-                    const toNode = nodesData[trace.to];
-
-                    p.progress += p.speed;
-                    if (p.progress > 1) p.progress = 0;
-
-                    const offset = trace.offset || 0;
-                    const midX = (fromNode.x + toNode.x) / 2 + offset;
-                    let px = fromNode.x + offset;
-                    let py = fromNode.y + offset;
-
-                    if (p.progress < 0.333) {
-                        const t = p.progress / 0.333;
-                        px = (fromNode.x + offset) + (midX - (fromNode.x + offset)) * t;
-                        py = fromNode.y + offset;
-                    } else if (p.progress < 0.666) {
-                        const t = (p.progress - 0.333) / 0.333;
-                        px = midX;
-                        py = (fromNode.y + offset) + ((toNode.y + offset) - (fromNode.y + offset)) * t;
-                    } else {
-                        const t = (p.progress - 0.666) / 0.333;
-                        px = midX + ((toNode.x + offset) - midX) * t;
-                        py = toNode.y + offset;
-                    }
-
-                    ctx.save();
-                    ctx.fillStyle = trace.color || "#38bdf8";
-                    ctx.shadowColor = trace.color || "#38bdf8";
-                    ctx.shadowBlur = 6;
-                    ctx.beginPath();
-                    ctx.arc(px, py, 3, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.restore();
-                }
-            }
-
-            // 6. WIRELESS RF WAVES
-            for (let i = rfWaves.length - 1; i >= 0; i--) {
-                const wave = rfWaves[i];
-                wave.radius += 4;
-                wave.alpha = 1 - (wave.radius / wave.maxRadius);
-
-                if (wave.radius >= wave.maxRadius) {
-                    rfWaves.splice(i, 1);
-                    continue;
-                }
-
-                ctx.save();
-                ctx.strokeStyle = `rgba(16, 185, 129, ${wave.alpha})`;
-                ctx.lineWidth = 3;
-                ctx.beginPath();
-                ctx.arc(wave.x, wave.y, wave.radius, -Math.PI / 4, Math.PI / 4);
-                ctx.stroke();
-                ctx.restore();
-            }
-
-            // 7. ACTUATOR MECHANICAL KINETIC SPARKS
-            for (let i = actuatorSparks.length - 1; i >= 0; i--) {
-                const sp = actuatorSparks[i];
-                sp.x += sp.vx;
-                sp.y += sp.vy;
-                sp.life -= 0.04;
-
-                if (sp.life <= 0) {
-                    actuatorSparks.splice(i, 1);
-                    continue;
-                }
-
-                ctx.save();
-                ctx.strokeStyle = `rgba(245, 158, 11, ${sp.life})`;
-                ctx.lineWidth = 1.5;
-                ctx.beginPath();
-                ctx.arc(sp.x, sp.y, sp.radius, 0, Math.PI * 2);
-                ctx.stroke();
-                ctx.restore();
-            }
-
-            // 8. SCHEMATIC NODES & SYMBOLS RENDER
-            for (let key in nodesData) {
-                const node = nodesData[key];
-                if (!node) continue;
-
-                if (node.stage < 0 && !checkPrereqs(node)) continue;
-
-                const isUnlocked = node.stage >= 0;
-                const canUnlock = !isUnlocked && checkPrereqs(node);
-                
-                const safeStageIdx = isUnlocked ? Math.min(node.stage, node.stages.length - 1) : 0;
-                const currentStageInfo = node.stages[safeStageIdx];
-
-                ctx.save();
-
-                // Apply Mechanical Tilt / Vibration for Wheel Servos
-                let nodeX = node.x;
-                let nodeY = node.y;
-                let nodeAngle = 0;
-
-                if (key.startsWith("servo_")) {
-                    const sKey = key.replace("servo_", "");
-                    const sState = servoStates[sKey];
-                    if (sState) {
-                        if (sState.vibe > 0) {
-                            nodeX += (Math.random() - 0.5) * sState.vibe;
-                            nodeY += (Math.random() - 0.5) * sState.vibe;
-                            sState.vibe *= 0.85;
-                            if (sState.vibe < 0.5) sState.vibe = 0;
-                        }
-                        nodeAngle = sState.tilt;
-                        sState.tilt *= 0.9;
-                    }
-                }
-
-                ctx.translate(nodeX, nodeY);
-                ctx.rotate(nodeAngle);
-
-                // Dotted Perimeter / Unlockable Glow
-                if (isUnlocked) {
-                    ctx.strokeStyle = "#38bdf8";
-                    ctx.fillStyle = "#0b1329";
-                    ctx.lineWidth = 2;
-                    ctx.beginPath();
-                    ctx.arc(0, 0, 32, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.stroke();
-                } else if (canUnlock) {
-                    const pulse = Math.sin(Date.now() / 200) * 3;
-                    ctx.strokeStyle = "#f59e0b";
-                    ctx.lineWidth = 2;
-                    ctx.setLineDash([5, 5]);
-                    ctx.beginPath();
-                    ctx.arc(0, 0, 32 + pulse, 0, Math.PI * 2);
-                    ctx.stroke();
-
-                    ctx.fillStyle = "rgba(245, 158, 11, 0.1)";
-                    ctx.beginPath();
-                    ctx.arc(0, 0, 32, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-
-                // Render Symbol inside Node
-                if (isUnlocked) {
-                    drawSymbol(ctx, currentStageInfo.symbol, 0, 0, node.stage);
-                } else {
-                    ctx.fillStyle = "#f59e0b";
-                    ctx.font = "bold 12px Fira Code";
-                    ctx.textAlign = "center";
-                    ctx.fillText("+ UNLOCK", 0, 4);
-                }
-
-                // Render Label Below Node
-                ctx.font = "10px Fira Code";
-                ctx.textAlign = "center";
-                if (isUnlocked) {
-                    ctx.fillStyle = "#94a3b8";
-                    ctx.fillText(currentStageInfo.title, 0, 48);
-                    ctx.fillStyle = "#38bdf8";
-                    ctx.fillText(`[T${node.stage + 1}/${node.maxStage + 1}]`, 0, 60);
-                } else if (canUnlock) {
-                    ctx.fillStyle = "#f59e0b";
-                    ctx.fillText("DISCOVERY NODE", 0, 48);
-                }
-
-                // Hover Ring
-                if (hoveredNode === node) {
-                    ctx.strokeStyle = "#67e8f9";
-                    ctx.lineWidth = 3;
-                    ctx.shadowColor = "#67e8f9";
-                    ctx.shadowBlur = 12;
-                    ctx.beginPath();
-                    ctx.arc(0, 0, 36, 0, Math.PI * 2);
-                    ctx.stroke();
-                }
-
-                ctx.restore();
-            }
-
-            ctx.restore();
-            animationFrameId = requestAnimationFrame(render);
+            return target;
         }
 
-        // --- INTERACTION & HOVER HANDLERS ---
-        function getCanvasCoordinates(e) {
-            const rect = canvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
+        // --- SETUP PHASE HANDLERS ---
 
-            const worldX = (mouseX - panX) / scale;
-            const worldY = (mouseY - panY) / scale;
+        function handleSetupCellClick(row, col) {
+            if (state.phase !== 'setup') return;
 
-            return { x: worldX, y: worldY, rawX: e.clientX, rawY: e.clientY };
-        }
+            // Check if cell already has a player card -> pick it up or swap
+            const existing = state.playerCards.find(c => c.row === row && c.col === col);
+            const selected = state.playerCards.find(c => c.id === state.selectedSetupCardId);
 
-        function findHoveredNode(worldX, worldY) {
-            for (let key in nodesData) {
-                const node = nodesData[key];
-                if (!node || (node.stage < 0 && !checkPrereqs(node))) continue;
-
-                const dist = Math.hypot(node.x - worldX, node.y - worldY);
-                if (dist <= 35) return node;
-            }
-            return null;
-        }
-
-        // Safe Hover Card Update Logic (Prevents array freeze bug on max upgrade)
-        function updateHoverCard(node) {
-            const card = document.getElementById('hover-card');
-            if (!node) {
-                card.classList.add('opacity-0', 'pointer-events-none', 'translate-y-4');
+            if (existing && !selected) {
+                state.selectedSetupCardId = existing.id;
+                renderAll();
                 return;
             }
 
-            const isUnlocked = node.stage >= 0;
-            const canUnlock = !isUnlocked && checkPrereqs(node);
-            const isMax = isUnlocked && node.stage >= node.maxStage;
-
-            // SAFE TIER ACCESS: Lock next index to stages length - 1
-            const currentIdx = Math.max(0, Math.min(node.stage, node.stages.length - 1));
-            const nextIdx = isUnlocked ? Math.min(node.stage + 1, node.stages.length - 1) : 0;
-            const displayStageInfo = isMax ? node.stages[currentIdx] : node.stages[nextIdx];
-
-            document.getElementById('card-type').innerText = displayStageInfo.type || "Component";
-            document.getElementById('card-tier').innerText = `Tier ${node.stage < 0 ? 1 : Math.min(node.stage + (isMax ? 1 : 2), node.maxStage + 1)}`;
-            document.getElementById('card-title').innerText = displayStageInfo.title;
-            document.getElementById('card-desc').innerText = displayStageInfo.desc;
-
-            const prereqContainer = document.getElementById('card-prereq-container');
-            const prereqList = document.getElementById('card-prereq-list');
-            const actionPrompt = document.getElementById('card-action-prompt');
-
-            if (!isUnlocked && !canUnlock) {
-                prereqContainer.classList.remove('hidden');
-                prereqList.innerHTML = (node.prereqs || []).map(r => {
-                    const reqNode = nodesData[r.node];
-                    const reqTitle = reqNode?.stages[r.stage]?.title || "Previous Stage";
-                    return `<li>Requires ${reqNode?.stages[0]?.title || r.node} (${reqTitle})</li>`;
-                }).join('');
-                actionPrompt.innerText = "Locked by Dependencies";
-                actionPrompt.className = "text-xs font-bold text-rose-400 bg-rose-950/50 p-2 rounded border border-rose-800/50 text-center";
-            } else {
-                prereqContainer.classList.add('hidden');
-                if (isMax) {
-                    actionPrompt.innerText = "Fully Evolved Circuit Node";
-                    actionPrompt.className = "text-xs font-bold text-emerald-400 bg-emerald-950/50 p-2 rounded border border-emerald-800/50 text-center";
+            if (selected) {
+                if (existing && existing.id !== selected.id) {
+                    // Swap positions if selected was already on board, else replace
+                    const oldR = selected.row;
+                    const oldC = selected.col;
+                    selected.row = row;
+                    selected.col = col;
+                    existing.row = oldR;
+                    existing.col = oldC;
                 } else {
-                    actionPrompt.innerText = isUnlocked ? "Click Node to Evolve Sub-System" : "Click Node to Unlock Circuit Branch";
-                    actionPrompt.className = "text-xs font-bold text-cyan-400 bg-cyan-950/50 p-2 rounded border border-cyan-800/50 text-center animate-pulse";
+                    selected.row = row;
+                    selected.col = col;
+                }
+
+                // Automatically select next unplaced card
+                const nextUnplaced = state.playerCards.find(c => c.row === null);
+                state.selectedSetupCardId = nextUnplaced ? nextUnplaced.id : null;
+            }
+
+            renderAll();
+        }
+
+        function autoDeployPlayer() {
+            const availableCoords = [];
+            for (let r = 0; r < 3; r++) {
+                for (let c = 0; c < 5; c++) {
+                    availableCoords.push({ r, c });
+                }
+            }
+            // Shuffle coordinates
+            availableCoords.sort(() => Math.random() - 0.5);
+
+            state.playerCards.forEach((card, idx) => {
+                card.row = availableCoords[idx].r;
+                card.col = availableCoords[idx].c;
+            });
+            state.selectedSetupCardId = null;
+            renderAll();
+        }
+
+        function deployBotFormation() {
+            // Bot deploys intelligently: puts solid elements in front/middle rows, transparent Air/Cloud in back or flanks
+            const frontCoords = [{r:2, c:1}, {r:2, c:2}, {r:2, c:3}, {r:1, c:1}, {r:1, c:3}].sort(() => Math.random() - 0.5);
+            const backCoords = [{r:0, c:0}, {r:0, c:2}, {r:0, c:4}, {r:1, c:0}, {r:1, c:4}].sort(() => Math.random() - 0.5);
+
+            // Shuffle bot's slot order slightly so turn order #1-#5 varies each match
+            const shuffledTypes = ['fire', 'water', 'earth', 'air', 'cloud'].sort(() => Math.random() - 0.5);
+            state.enemyCards.forEach((card, idx) => {
+                const t = shuffledTypes[idx];
+                card.type = t;
+                card.originalType = t;
+                const pos = ELEMENTS[t].solid ? frontCoords.pop() : backCoords.pop();
+                card.row = pos.r;
+                card.col = pos.c;
+            });
+        }
+
+        function startBattle() {
+            if (state.playerCards.some(c => c.row === null)) return;
+
+            deployBotFormation();
+            buildSnakeQueue();
+
+            document.getElementById('setup-tray').classList.add('hidden');
+            document.getElementById('combat-controls').classList.remove('hidden');
+            document.getElementById('snake-queue-container').classList.remove('hidden');
+
+            addLog('⚔️ Battle started! Snake Draft turn order is active.', 'text-amber-300 font-bold');
+            beginNextTurnInQueue();
+        }
+
+        // --- SNAKE DRAFT TURN QUEUE ENGINE ---
+
+        /**
+         * Builds the 10-step Snake Draft sequence for a round:
+         * P1 -> E1 -> E2 -> P2 -> P3 -> E3 -> E4 -> P4 -> P5 -> E5
+         */
+        function buildSnakeQueue() {
+            state.snakeQueue = [
+                { owner: 'player', rank: 0 },
+                { owner: 'enemy',  rank: 0 },
+                { owner: 'enemy',  rank: 1 },
+                { owner: 'player', rank: 1 },
+                { owner: 'player', rank: 2 },
+                { owner: 'enemy',  rank: 2 },
+                { owner: 'enemy',  rank: 3 },
+                { owner: 'player', rank: 3 },
+                { owner: 'player', rank: 4 },
+                { owner: 'enemy',  rank: 4 }
+            ];
+            state.queuePointer = 0;
+        }
+
+        /**
+         * Resolves which living card corresponds to `{ owner, rank }`.
+         * Because dead cards are skipped, rank 0 is the 1st living card, rank 1 is the 2nd living card, etc.
+         */
+        function resolveCardForQueueEntry(entry) {
+            const livingPool = (entry.owner === 'player' ? state.playerCards : state.enemyCards)
+                .filter(c => c.alive)
+                .sort((a, b) => a.slotNum - b.slotNum);
+
+            return livingPool[entry.rank] || null;
+        }
+
+        function beginNextTurnInQueue() {
+            if (checkWinCondition()) return;
+
+            // Check if player has a pending Elemental Promotion from a fallen element
+            if (state.pendingPromotions.length > 0 && hasPromotableNeutral('player')) {
+                openPromotionPrompt(state.pendingPromotions[0]);
+                return;
+            } else {
+                state.pendingPromotions = [];
+            }
+
+            // Advance pointer until we find a valid living card for that rank
+            while (state.queuePointer < state.snakeQueue.length) {
+                const entry = state.snakeQueue[state.queuePointer];
+                const card = resolveCardForQueueEntry(entry);
+
+                if (card) {
+                    state.activeCardId = card.id;
+                    if (card.owner === 'player') {
+                        state.phase = 'move';
+                        updateTurnUI(card);
+                        renderAll();
+                    } else {
+                        state.phase = 'enemy_turn';
+                        updateTurnUI(card);
+                        renderAll();
+                        setTimeout(() => executeBotTurn(card), 650);
+                    }
+                    return;
+                }
+                state.queuePointer++;
+            }
+
+            // End of round -> start next round
+            state.round++;
+            state.queuePointer = 0;
+            addLog(`🔄 Round ${state.round} begins!`, 'text-sky-300 font-semibold');
+            beginNextTurnInQueue();
+        }
+
+        function updateTurnUI(activeCard) {
+            const phaseBadge = document.getElementById('phase-badge');
+            const unitBadge = document.getElementById('active-unit-badge');
+            const instr = document.getElementById('instruction-text');
+            const stayBtn = document.getElementById('btn-stay-still');
+
+            const elInfo = ELEMENTS[activeCard.type];
+            unitBadge.textContent = `#${activeCard.slotNum} ${elInfo.icon} ${elInfo.name}`;
+
+            if (activeCard.owner === 'player') {
+                if (state.phase === 'move') {
+                    phaseBadge.textContent = 'Step 1: Move';
+                    phaseBadge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase bg-sky-500/20 text-sky-300 border border-sky-500/30';
+                    instr.innerHTML = `Move <strong>#${activeCard.slotNum} ${elInfo.name}</strong> 1 orthogonal square to adjust cover/defense, or click <em>Stay Still</em>.`;
+                    stayBtn.classList.remove('hidden');
+                } else if (state.phase === 'attack') {
+                    phaseBadge.textContent = 'Step 2: Attack';
+                    phaseBadge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase bg-rose-500/20 text-rose-300 border border-rose-500/30';
+                    instr.innerHTML = `Click any <strong>Enemy Card</strong> to launch a global attack with <strong>#${activeCard.slotNum} ${elInfo.name}</strong>!`;
+                    stayBtn.classList.add('hidden');
+                }
+            } else {
+                phaseBadge.textContent = 'Bot Turn';
+                phaseBadge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30';
+                instr.textContent = `Bot is moving and attacking with #${activeCard.slotNum} ${elInfo.name}...`;
+                stayBtn.classList.add('hidden');
+            }
+        }
+
+        // --- PLAYER MOVEMENT & ATTACK ACTIONS ---
+
+        function getValidMoveCells(card) {
+            const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+            const pool = card.owner === 'player' ? state.playerCards : state.enemyCards;
+            const valid = [];
+
+            dirs.forEach(([dr, dc]) => {
+                const nr = card.row + dr;
+                const nc = card.col + dc;
+                if (nr >= 0 && nr < 3 && nc >= 0 && nc < 5) {
+                    const occupied = pool.some(c => c.alive && c.row === nr && c.col === nc);
+                    if (!occupied) valid.push({ row: nr, col: nc });
+                }
+            });
+            return valid;
+        }
+
+        function handlePlayerCellClick(row, col) {
+            const activeCard = state.playerCards.find(c => c.id === state.activeCardId);
+            if (!activeCard) return;
+
+            if (state.phase === 'move') {
+                const validMoves = getValidMoveCells(activeCard);
+                const isMoveValid = validMoves.some(m => m.row === row && m.col === col);
+                if (isMoveValid) {
+                    activeCard.row = row;
+                    activeCard.col = col;
+                    addLog(`👣 Your #${activeCard.slotNum} ${ELEMENTS[activeCard.type].name} moved to (${row + 1}, ${col + 1}).`, 'text-slate-300');
+                    state.phase = 'attack';
+                    updateTurnUI(activeCard);
+                    renderAll();
+                }
+            }
+        }
+
+        function handleStayStill() {
+            const activeCard = state.playerCards.find(c => c.id === state.activeCardId);
+            if (!activeCard || state.phase !== 'move') return;
+            state.phase = 'attack';
+            updateTurnUI(activeCard);
+            renderAll();
+        }
+
+        function handleEnemyCellClick(row, col) {
+            if (state.phase !== 'attack') return;
+            const activeCard = state.playerCards.find(c => c.id === state.activeCardId);
+            const targetCard = state.enemyCards.find(c => c.alive && c.row === row && c.col === col);
+
+            if (!activeCard || !targetCard) return;
+
+            performAttack(activeCard, targetCard);
+            state.queuePointer++;
+            beginNextTurnInQueue();
+        }
+
+        function performAttack(attacker, intendedTarget) {
+            const outcome = calculateCombatOutcome(attacker, intendedTarget);
+            const victim = outcome.actualTarget;
+
+            victim.hp = Math.max(0, victim.hp - outcome.damage);
+
+            const atkOwner = attacker.owner === 'player' ? 'Your' : 'Bot';
+            const vicOwner = victim.owner === 'player' ? 'your' : 'Bot';
+
+            let logMsg = `${ELEMENTS[attacker.type].icon} ${atkOwner} #${attacker.slotNum} ${ELEMENTS[attacker.type].name} hit ${vicOwner} #${victim.slotNum} ${ELEMENTS[victim.type].name} for <strong>${outcome.damage} DMG</strong> (${outcome.effectiveAtk} ATK vs ${outcome.effectiveDef} DEF).`;
+            if (outcome.intercepted) {
+                logMsg = `🛡️ <strong>COVER!</strong> ${ELEMENTS[victim.type].name} intercepted the shot aimed at ${ELEMENTS[intendedTarget.type].name}! ` + logMsg;
+            }
+            addLog(logMsg, attacker.owner === 'player' ? 'text-sky-200' : 'text-rose-200');
+
+            showFloatingDamage(victim, outcome.damage, outcome.intercepted);
+
+            if (victim.hp <= 0) {
+                victim.alive = false;
+                victim.row = null;
+                victim.col = null;
+                addLog(`💀 <strong>${vicOwner.toUpperCase()} #${victim.slotNum} ${ELEMENTS[victim.type].name.toUpperCase()} WAS DESTROYED!</strong>`, 'text-rose-400 font-bold');
+
+                // Check if fallen card was a core element (fire, water, earth) -> trigger Jolly Promotion opportunity
+                if (['fire', 'water', 'earth'].includes(victim.type)) {
+                    if (victim.owner === 'player' && hasPromotableNeutral('player')) {
+                        state.pendingPromotions.push(victim.type);
+                    } else if (victim.owner === 'enemy' && hasPromotableNeutral('enemy')) {
+                        autoPromoteBot(victim.type);
+                    }
                 }
             }
 
-            card.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-4');
+            renderAll();
         }
 
-        // Mouse & Interaction Controls
-        container.addEventListener('mousedown', (e) => {
-            const coords = getCanvasCoordinates(e);
-            const node = findHoveredNode(coords.x, coords.y);
+        // --- JOLLY ELEMENTAL PROMOTION ---
 
-            if (node) {
-                if (node.stage < 0 && checkPrereqs(node)) {
-                    node.stage = 0;
-                    checkGameMilestones();
-                } else if (node.stage >= 0 && node.stage < node.maxStage) {
-                    node.stage++;
-                    checkGameMilestones();
-                }
-                updateHoverCard(node);
-            } else {
-                isDragging = true;
-                startPanX = e.clientX - panX;
-                startPanY = e.clientY - panY;
-            }
-        });
+        function hasPromotableNeutral(owner) {
+            const pool = owner === 'player' ? state.playerCards : state.enemyCards;
+            return pool.some(c => c.alive && (c.type === 'air' || c.type === 'cloud'));
+        }
 
-        window.addEventListener('mousemove', (e) => {
-            if (isDragging) {
-                panX = e.clientX - startPanX;
-                panY = e.clientY - startPanY;
-            } else {
-                const coords = getCanvasCoordinates(e);
-                hoveredNode = findHoveredNode(coords.x, coords.y);
-                updateHoverCard(hoveredNode);
-            }
-        });
+        function openPromotionPrompt(fallenElement) {
+            state.phase = 'promotion';
+            const overlay = document.getElementById('promotion-overlay');
+            const desc = document.getElementById('promotion-desc');
+            const btnContainer = document.getElementById('promotion-buttons');
 
-        window.addEventListener('mouseup', () => { isDragging = false; });
+            const elInfo = ELEMENTS[fallenElement];
+            desc.innerHTML = `Your <strong>${elInfo.icon} ${elInfo.name}</strong> fell! Promote a neutral card below into ${elInfo.icon} <strong>${elInfo.name}</strong> (gains solid front-line blocking & element matchups), or keep it neutral:`;
 
-        container.addEventListener('wheel', (e) => {
-            e.preventDefault();
-            const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
-            const newScale = scale * zoomFactor;
-            
-            if (newScale >= 0.35 && newScale <= 2.5) {
-                const mouseX = e.clientX;
-                const mouseY = e.clientY;
+            btnContainer.innerHTML = '';
 
-                panX = mouseX - (mouseX - panX) * zoomFactor;
-                panY = mouseY - (mouseY - panY) * zoomFactor;
-                scale = newScale;
-            }
-        });
+            const neutrals = state.playerCards.filter(c => c.alive && (c.type === 'air' || c.type === 'cloud'));
+            neutrals.forEach(card => {
+                const btn = document.createElement('button');
+                btn.className = 'px-3 py-1.5 rounded-xl font-bold text-xs bg-amber-500 hover:bg-amber-400 text-slate-950 shadow transition';
+                btn.innerHTML = `Promote #${card.slotNum} ${ELEMENTS[card.type].icon} ${ELEMENTS[card.type].name} &rarr; ${elInfo.icon} ${elInfo.name}`;
+                btn.onclick = () => {
+                    card.type = fallenElement;
+                    card.promoted = true;
+                    addLog(`✨ Promoted #${card.slotNum} into ${elInfo.icon} <strong>${elInfo.name}</strong>!`, 'text-amber-300 font-bold');
+                    closePromotionPrompt();
+                };
+                btnContainer.appendChild(btn);
+            });
 
-        document.getElementById('btn-zoom-in').onclick = () => { scale = Math.min(2.5, scale * 1.2); };
-        document.getElementById('btn-zoom-out').onclick = () => { scale = Math.max(0.35, scale / 1.2); };
-        document.getElementById('btn-reset-view').onclick = () => {
-            scale = 1.0;
-            panX = width / 2 - 100;
-            panY = height / 2;
-        };
+            const skipBtn = document.createElement('button');
+            skipBtn.className = 'px-3 py-1.5 rounded-xl font-semibold text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 transition';
+            skipBtn.textContent = 'Keep Neutral';
+            skipBtn.onclick = () => {
+                addLog(`💨 Kept Air/Cloud neutral (transparent).`, 'text-slate-400');
+                closePromotionPrompt();
+            };
+            btnContainer.appendChild(skipBtn);
 
-        function checkGameMilestones() {
-            const statusText = document.getElementById('status-text');
-            const rfKeypad = nodesData["tactile_keypad"];
-            const rfTx = nodesData["rf_transmitter"];
-            const controllerPad = document.getElementById('remote-controller');
+            overlay.classList.remove('hidden');
+            renderAll();
+        }
 
-            let totalStages = 0;
-            let unlockedStages = 0;
-            for (let k in nodesData) {
-                totalStages += nodesData[k].maxStage + 1;
-                unlockedStages += (nodesData[k].stage + 1);
-            }
+        function closePromotionPrompt() {
+            state.pendingPromotions.shift();
+            document.getElementById('promotion-overlay').classList.add('hidden');
+            beginNextTurnInQueue();
+        }
 
-            const percent = Math.floor((unlockedStages / totalStages) * 100);
-            statusText.innerText = `Schematic System Evolution: ${percent}% Complete`;
-
-            if (rfKeypad.stage >= 0 && rfTx.stage >= 0) {
-                controllerPad.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-10');
+        function autoPromoteBot(fallenElement) {
+            const neutral = state.enemyCards.find(c => c.alive && (c.type === 'air' || c.type === 'cloud'));
+            if (neutral) {
+                neutral.type = fallenElement;
+                neutral.promoted = true;
+                addLog(`✨ Bot promoted its #${neutral.slotNum} card into ${ELEMENTS[fallenElement].icon} <strong>${ELEMENTS[fallenElement].name}</strong>!`, 'text-amber-400 font-bold');
             }
         }
 
-        ['up', 'down', 'left', 'right'].forEach(dir => {
-            const btn = document.getElementById(`btn-${dir}`);
-            if (btn) {
-                btn.addEventListener('click', () => {
-                    triggerRFWave(dir);
+        // --- SMART AI BOT LOGIC ---
+
+        function executeBotTurn(botCard) {
+            if (!botCard.alive || state.phase === 'gameover') return;
+
+            // 1. Evaluate all possible moves (including staying still)
+            const candidateMoves = [{ row: botCard.row, col: botCard.col }, ...getValidMoveCells(botCard)];
+            const origRow = botCard.row;
+            const origCol = botCard.col;
+
+            let bestMove = candidateMoves[0];
+            let bestMoveScore = -9999;
+
+            // Find what element player will likely attack with next
+            const nextPlayerEntry = state.snakeQueue.slice(state.queuePointer + 1).find(e => e.owner === 'player');
+            const nextPlayerCard = nextPlayerEntry ? resolveCardForQueueEntry(nextPlayerEntry) : null;
+            const threatElement = nextPlayerCard ? nextPlayerCard.type : 'air';
+
+            candidateMoves.forEach(move => {
+                botCard.row = move.row;
+                botCard.col = move.col;
+
+                let score = 0;
+                // Reward total team defense against next player threat + cover protection for wounded allies
+                state.enemyCards.filter(c => c.alive).forEach(ally => {
+                    const def = calculateDefenseAgainst(ally, threatElement);
+                    score += def * (ally.hp < 60 ? 1.6 : 1.0);
+
+                    // Bonus if solid bot card steps in front of a wounded ally
+                    if (ELEMENTS[botCard.type].solid && ally.id !== botCard.id && ally.hp <= 55) {
+                        if (ally.col === botCard.col && botCard.row > ally.row) {
+                            score += 18;
+                        }
+                    }
                 });
+
+                if (score > bestMoveScore) {
+                    bestMoveScore = score;
+                    bestMove = move;
+                }
+            });
+
+            // Apply best move
+            botCard.row = bestMove.row;
+            botCard.col = bestMove.col;
+            if (bestMove.row !== origRow || bestMove.col !== origCol) {
+                addLog(`🤖 Bot moved #${botCard.slotNum} ${ELEMENTS[botCard.type].name} to (${bestMove.row + 1}, ${bestMove.col + 1}).`, 'text-slate-400');
             }
-        });
 
-        window.addEventListener('resize', () => {
-            width = canvas.width = container.clientWidth;
-            height = canvas.height = container.clientHeight;
-        });
+            // 2. Choose best target among living player cards
+            const playerTargets = state.playerCards.filter(c => c.alive);
+            let bestTarget = playerTargets[0];
+            let bestAttackScore = -9999;
 
-        // Start Loop
-        render();
+            playerTargets.forEach(target => {
+                const outcome = calculateCombatOutcome(botCard, target);
+                let score = outcome.damage * 2;
+                // Huge bonus if attack secures a lethal kill
+                if (outcome.actualTarget.hp <= outcome.damage) {
+                    score += 120;
+                }
+                // Slight bonus for hitting high-priority early queue cards
+                score += (6 - outcome.actualTarget.slotNum) * 4;
+
+                if (score > bestAttackScore) {
+                    bestAttackScore = score;
+                    bestTarget = target;
+                }
+            });
+
+            if (bestTarget) {
+                performAttack(botCard, bestTarget);
+            }
+
+            state.queuePointer++;
+            beginNextTurnInQueue();
+        }
+
+        // --- WIN CONDITION CHECK ---
+
+        function checkWinCondition() {
+            const playerAlive = state.playerCards.filter(c => c.alive).length;
+            const enemyAlive = state.enemyCards.filter(c => c.alive).length;
+
+            if (playerAlive === 0 || enemyAlive === 0) {
+                state.phase = 'gameover';
+                const modal = document.getElementById('gameover-modal');
+                const emoji = document.getElementById('gameover-emoji');
+                const title = document.getElementById('gameover-title');
+                const msg = document.getElementById('gameover-msg');
+
+                if (enemyAlive === 0) {
+                    emoji.textContent = '🏆';
+                    title.textContent = 'Victory!';
+                    msg.textContent = `You defeated the Bot in ${state.round} rounds with ${playerAlive} fighter(s) standing!`;
+                } else {
+                    emoji.textContent = '💀';
+                    title.textContent = 'Defeat';
+                    msg.textContent = `Your squad was wiped out in Round ${state.round}. Adjust your frontline cover and Snake order!`;
+                }
+                modal.classList.remove('hidden');
+                renderAll();
+                return true;
+            }
+            return false;
+        }
+
+        // --- UI RENDERING ---
+
+        function renderAll() {
+            renderSetupTray();
+            renderSnakeQueue();
+            renderGrid('enemy-grid', state.enemyCards, 'enemy');
+            renderGrid('player-grid', state.playerCards, 'player');
+            renderInspector();
+
+            document.getElementById('player-alive-count').textContent = `${state.playerCards.filter(c => c.alive).length}/5 Alive`;
+            document.getElementById('enemy-alive-count').textContent = `${state.enemyCards.filter(c => c.alive).length}/5 Alive`;
+            document.getElementById('round-indicator').textContent = `Round ${state.round}`;
+        }
+
+        function renderSetupTray() {
+            if (state.phase !== 'setup') return;
+            const list = document.getElementById('setup-cards-list');
+            list.innerHTML = '';
+
+            state.playerCards.forEach(card => {
+                const el = ELEMENTS[card.type];
+                const isSelected = state.selectedSetupCardId === card.id;
+                const isPlaced = card.row !== null;
+
+                const btn = document.createElement('button');
+                btn.className = `p-1.5 rounded-xl border-2 flex flex-col items-center justify-center transition ${el.style} ${isSelected ? 'ring-2 ring-amber-300 scale-105' : 'opacity-85 hover:opacity-100'}`;
+                btn.innerHTML = `
+                    <span class="text-[10px] font-black bg-black/40 px-1.5 rounded-full mb-0.5">#${card.slotNum}</span>
+                    <span class="text-base leading-none">${el.icon}</span>
+                    <span class="text-[10px] font-bold mt-0.5">${el.name}</span>
+                    <span class="text-[9px] text-white/80">${isPlaced ? `(${card.row+1},${card.col+1})` : 'Unplaced'}</span>
+                `;
+                btn.onclick = () => {
+                    state.selectedSetupCardId = card.id;
+                    renderAll();
+                };
+                list.appendChild(btn);
+            });
+
+            const allPlaced = state.playerCards.every(c => c.row !== null);
+            document.getElementById('btn-start-battle').disabled = !allPlaced;
+        }
+
+        function renderSnakeQueue() {
+            if (state.phase === 'setup') return;
+            const list = document.getElementById('snake-queue-list');
+            list.innerHTML = '';
+
+            state.snakeQueue.forEach((entry, idx) => {
+                const card = resolveCardForQueueEntry(entry);
+                if (!card) return;
+
+                const isCurrent = idx === state.queuePointer;
+                const isPast = idx < state.queuePointer;
+                const el = ELEMENTS[card.type];
+
+                const pill = document.createElement('div');
+                pill.className = `px-2 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 shrink-0 border transition ${
+                    isCurrent
+                        ? 'bg-amber-400 text-slate-950 border-amber-200 scale-105 shadow-md'
+                        : isPast
+                            ? 'bg-slate-900/50 text-slate-500 border-slate-800 line-through'
+                            : entry.owner === 'player'
+                                ? 'bg-sky-950/80 text-sky-200 border-sky-700/60'
+                                : 'bg-rose-950/80 text-rose-200 border-rose-700/60'
+                }`;
+                pill.innerHTML = `
+                    <span>${entry.owner === 'player' ? 'You' : 'Bot'}</span>
+                    <span>#${card.slotNum}</span>
+                    <span>${el.icon}</span>
+                `;
+                list.appendChild(pill);
+            });
+        }
+
+        function renderGrid(containerId, cardsPool, owner) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+
+            const activeCard = [...state.playerCards, ...state.enemyCards].find(c => c.id === state.activeCardId);
+            const validMoveCells = (owner === 'player' && state.phase === 'move' && activeCard && activeCard.owner === 'player')
+                ? getValidMoveCells(activeCard)
+                : [];
+
+            for (let r = 0; r < 3; r++) {
+                for (let c = 0; c < 5; c++) {
+                    const cell = document.createElement('div');
+                    const card = cardsPool.find(item => item.alive && item.row === r && item.col === c);
+
+                    const isMoveTarget = validMoveCells.some(m => m.row === r && m.col === c);
+                    const isAttackTarget = (owner === 'enemy' && state.phase === 'attack' && card);
+
+                    // Determine row label hint
+                    let rowTag = '';
+                    if (owner === 'player' && r === 0) rowTag = 'FRONT';
+                    if (owner === 'enemy' && r === 2) rowTag = 'FRONT';
+
+                    cell.className = `grid-cell relative aspect-[4/4.4] rounded-xl border border-slate-700/80 bg-slate-800/40 flex flex-col justify-between p-1 sm:p-1.5 ${
+                        isMoveTarget ? 'grid-cell-valid-move' : ''
+                    } ${isAttackTarget ? 'grid-cell-targetable' : ''}`;
+
+                    if (owner === 'player') {
+                        cell.onclick = () => {
+                            if (state.phase === 'setup') handleSetupCellClick(r, c);
+                            else handlePlayerCellClick(r, c);
+                        };
+                    } else {
+                        cell.onclick = () => handleEnemyCellClick(r, c);
+                    }
+
+                    if (!card) {
+                        cell.innerHTML = `
+                            <div class="flex justify-between items-center text-[9px] text-slate-600 font-semibold">
+                                <span>${r+1},${c+1}</span>
+                                <span>${rowTag}</span>
+                            </div>
+                            ${isMoveTarget ? '<div class="m-auto text-sky-400 text-xs font-bold">+ Move</div>' : ''}
+                        `;
+                    } else {
+                        const el = ELEMENTS[card.type];
+                        const isActive = card.id === state.activeCardId;
+                        const defSummary = getDefenseSummary(card);
+                        const hpPct = Math.max(0, Math.round((card.hp / card.maxHp) * 100));
+
+                        // Check if card is protected by a solid frontline blocker
+                        const blocker = resolveCoverTarget(card);
+                        const hasCover = blocker.id !== card.id;
+
+                        // Build specific defense badges (e.g. 🔥+6 or 🌿-3)
+                        const specBadges = defSummary.specific
+                            .filter(s => s.diff !== 0)
+                            .map(s => {
+                                const sign = s.diff > 0 ? `+${s.diff}` : `${s.diff}`;
+                                const color = s.diff > 0 ? 'bg-emerald-950/90 text-emerald-300 border-emerald-500/40' : 'bg-rose-950/90 text-rose-300 border-rose-500/40';
+                                return `<span class="px-1 rounded text-[9px] font-bold border ${color}" title="Defense vs ${s.element.toUpperCase()}: ${s.total}">${s.icon}${sign}</span>`;
+                            }).join('');
+
+                        // If player is in attack phase and hovering enemy card, show damage preview
+                        let attackPreviewBadge = '';
+                        if (isAttackTarget && activeCard) {
+                            const preview = calculateCombatOutcome(activeCard, card);
+                            attackPreviewBadge = `
+                                <div class="absolute -top-2 left-1/2 -translate-x-1/2 z-20 bg-rose-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full shadow whitespace-nowrap border border-rose-300">
+                                    ${preview.intercepted ? `🛡️ ${ELEMENTS[preview.actualTarget.type].icon} -${preview.damage}` : `⚔️ -${preview.damage} HP`}
+                                </div>
+                            `;
+                        }
+
+                        cell.className += ` ${el.style} border-2 shadow-md ${isActive ? 'active-card-glow' : ''}`;
+                        cell.innerHTML = `
+                            ${attackPreviewBadge}
+                            <!-- Top Bar: Slot Order # & Cover / Transparency indicator -->
+                            <div class="flex items-center justify-between text-[10px] font-black">
+                                <span class="bg-black/45 text-white px-1.5 py-0.2 rounded-md">#${card.slotNum}</span>
+                                <div class="flex items-center gap-0.5">
+                                    ${hasCover ? '<span title="Protected by Frontline Cover" class="text-[10px]">🧱</span>' : ''}
+                                    ${!el.solid ? '<span title="Transparent (Does not block shots behind it)" class="text-[10px] opacity-80">👻</span>' : ''}
+                                </div>
+                            </div>
+
+                            <!-- Center: Element Icon & Name -->
+                            <div class="flex flex-col items-center justify-center my-auto">
+                                <span class="text-lg sm:text-xl leading-none drop-shadow">${el.icon}</span>
+                                <span class="text-[10px] sm:text-[11px] font-extrabold tracking-tight text-white drop-shadow">${el.name}</span>
+                            </div>
+
+                            <!-- Effective Defense Display (Neutral DEF + Specific Element Badges) -->
+                            <div class="flex flex-wrap items-center justify-center gap-0.5 my-0.5">
+                                <span class="bg-slate-950/80 text-sky-300 border border-sky-400/40 px-1.5 py-0.2 rounded text-[10px] font-extrabold" title="Effective Defense vs Neutral Attacks">
+                                    🛡️${defSummary.neutralDef}
+                                </span>
+                                ${specBadges}
+                            </div>
+
+                            <!-- Bottom: HP Bar -->
+                            <div class="w-full">
+                                <div class="flex justify-between text-[9px] font-bold text-white/95 px-0.5">
+                                    <span>HP</span>
+                                    <span>${card.hp}</span>
+                                </div>
+                                <div class="w-full h-1.5 bg-black/50 rounded-full overflow-hidden">
+                                    <div class="h-full ${hpPct > 50 ? 'bg-emerald-400' : hpPct > 25 ? 'bg-amber-400' : 'bg-rose-500'} transition-all duration-300" style="width: ${hpPct}%"></div>
+                                </div>
+                            </div>
+                        `;
+
+                        // Update inspector on hover
+                        cell.onmouseenter = () => renderInspector(card);
+                    }
+
+                    container.appendChild(cell);
+                }
+            }
+        }
+
+        function renderInspector(hoveredCard = null) {
+            const box = document.getElementById('selected-card-inspector');
+            if (!box || state.phase === 'setup') return;
+
+            const card = hoveredCard || [...state.playerCards, ...state.enemyCards].find(c => c.id === state.activeCardId);
+            if (!card) return;
+
+            const el = ELEMENTS[card.type];
+            const defSummary = getDefenseSummary(card);
+            const blocker = resolveCoverTarget(card);
+
+            box.innerHTML = `
+                <div class="flex items-center justify-between border-b border-slate-700 pb-1 mb-1.5">
+                    <span class="font-bold text-white">${card.owner === 'player' ? 'Your' : 'Bot'} #${card.slotNum} ${el.icon} ${el.name}</span>
+                    <span class="text-[10px] text-slate-400">${el.solid ? '🧱 Solid Blocker' : '👻 Transparent'}</span>
+                </div>
+                <div class="grid grid-cols-2 gap-1 text-[11px]">
+                    <div class="text-slate-300">Neutral DEF: <strong class="text-sky-300">${defSummary.neutralDef}</strong></div>
+                    <div class="text-slate-300">Cover: <strong class="text-amber-300">${blocker.id !== card.id ? `Blocked by #${blocker.slotNum}` : 'Exposed'}</strong></div>
+                </div>
+                <div class="flex items-center justify-between mt-1.5 pt-1 border-t border-slate-800 text-[10px] text-slate-300">
+                    <span>DEF vs:</span>
+                    ${defSummary.specific.map(s => `<span>${s.icon} <strong>${s.total}</strong></span>`).join('')}
+                </div>
+            `;
+        }
+
+        function showFloatingDamage(card, damage, intercepted) {
+            const gridId = card.owner === 'player' ? 'player-grid' : 'enemy-grid';
+            const grid = document.getElementById(gridId);
+            const cellIndex = card.row * 5 + card.col;
+            const cell = grid.children[cellIndex];
+            if (!cell) return;
+
+            const pop = document.createElement('div');
+            pop.className = 'damage-popup absolute inset-0 flex items-center justify-center z-30 font-black text-base sm:text-lg text-rose-400 drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)]';
+            pop.textContent = `${intercepted ? '🛡️ ' : ''}-${damage}`;
+            cell.appendChild(pop);
+            setTimeout(() => pop.remove(), 1100);
+        }
+
+        function addLog(htmlMsg, extraClass = 'text-slate-300') {
+            const log = document.getElementById('battle-log');
+            const entry = document.createElement('div');
+            entry.className = `border-b border-slate-700/50 pb-1 ${extraClass}`;
+            entry.innerHTML = htmlMsg;
+            log.prepend(entry);
+        }
+
+        // --- EVENT LISTENERS ---
+        document.getElementById('btn-auto-deploy').onclick = autoDeployPlayer;
+        document.getElementById('btn-start-battle').onclick = startBattle;
+        document.getElementById('btn-stay-still').onclick = handleStayStill;
+        document.getElementById('btn-restart').onclick = initGame;
+        document.getElementById('btn-play-again').onclick = initGame;
+
+        document.getElementById('btn-rules').onclick = () => document.getElementById('rules-modal').classList.remove('hidden');
+        document.getElementById('btn-close-rules').onclick = () => document.getElementById('rules-modal').classList.add('hidden');
+
+        // Start on load
+        window.onload = initGame;
     </script>
 </body>
 </html>
