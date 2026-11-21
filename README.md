@@ -45,6 +45,7 @@ No build step is required. Open either HTML file in a modern browser:
 
 - `index.html` — Elemental Grid Tactics
 - `imperivm_tactics_arena_command.html` — Roman Tactics: Teutoburg
+- `teutoburg_ai_tactical_advisor_prompt` — Roman Tactics: Teutoburg AI prompt
 
 The pages load Tailwind CSS and fonts from external CDNs, so an internet connection may be needed for the complete presentation.
 
