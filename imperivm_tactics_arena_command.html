@@ -1,2092 +1,1957 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Teutoburg: Tactical Ambush in the Woods</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Cinzel:wght@700;900&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #090d16;
-            color: #f1f5f9;
-            user-select: none;
-            overflow-x: hidden;
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Teutoburg: Tactical Ambush in the Woods</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap');
 
-        .font-roman {
-            font-family: 'Cinzel', serif;
-        }
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #0d1117;
+      color: #e6edf3;
+    }
 
-        .tile-grass {
-            background: linear-gradient(145deg, #16281e 0%, #101f17 100%);
-            border-color: #233d2e;
-        }
-        .tile-forest {
-            background: radial-gradient(circle at 35% 30%, #1f4d2e 0%, #11301b 75%);
-            border-color: #2f6f44;
-            box-shadow: inset 0 0 10px rgba(74, 222, 128, 0.12);
-        }
-        .tile-deploy-player {
-            background: linear-gradient(145deg, rgba(14, 116, 144, 0.24) 0%, rgba(15, 23, 42, 0.7) 100%);
-            border-color: rgba(56, 189, 248, 0.35);
-        }
-        .tile-deploy-enemy {
-            background: linear-gradient(145deg, rgba(159, 18, 57, 0.24) 0%, rgba(15, 23, 42, 0.7) 100%);
-            border-color: rgba(251, 113, 133, 0.35);
-        }
+    h1, h2, h3, .font-cinzel {
+      font-family: 'Cinzel', serif;
+    }
 
-        .tile-valid-move {
-            background-color: rgba(56, 189, 248, 0.25) !important;
-            border-color: #38bdf8 !important;
-            box-shadow: inset 0 0 8px rgba(56, 189, 248, 0.35);
-            cursor: pointer;
-        }
-        .tile-valid-move:hover {
-            background-color: rgba(56, 189, 248, 0.42) !important;
-        }
+    .battle-grid-container {
+      width: 100%;
+      overflow-x: auto;
+    }
 
-        .tile-valid-attack {
-            border-color: rgba(244, 63, 94, 0.72) !important;
-            cursor: crosshair;
-        }
-        .tile-valid-attack:hover {
-            background-color: rgba(244, 63, 94, 0.22) !important;
-            box-shadow: inset 0 0 10px rgba(244, 63, 94, 0.45);
-        }
+    .battle-grid {
+      display: grid;
+      grid-template-columns: 28px repeat(18, minmax(46px, 1fr));
+      grid-template-rows: 24px repeat(10, 48px);
+      gap: 2px;
+      user-select: none;
+      position: relative;
+      min-width: 920px;
+    }
 
-        .tile-aoe-center {
-            background-color: rgba(244, 63, 94, 0.45) !important;
-            border-color: #fda4af !important;
-            box-shadow: inset 0 0 12px rgba(251, 113, 133, 0.75);
-        }
-        .tile-aoe-splash {
-            background-color: rgba(251, 146, 60, 0.32) !important;
-            border-color: #fdba74 !important;
-            box-shadow: inset 0 0 8px rgba(251, 146, 60, 0.55);
-        }
+    .grid-cell {
+      position: relative;
+      border-radius: 4px;
+      transition: background-color 0.12s ease, border-color 0.12s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
 
-        @keyframes pulse-active {
-            0%, 100% { box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.95), 0 0 14px rgba(250, 204, 21, 0.45); }
-            50% { box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.4), 0 0 5px rgba(250, 204, 21, 0.15); }
-        }
-        .unit-active-planning {
-            animation: pulse-active 1.3s infinite;
-        }
+    .grid-cell:hover {
+      filter: brightness(1.16);
+    }
 
-        @keyframes float-pop {
-            0% { opacity: 1; transform: translate(-50%, 0) scale(0.9); }
-            100% { opacity: 0; transform: translate(-50%, -26px) scale(1.15); }
-        }
-        .damage-pop {
-            animation: float-pop 1.15s ease-out forwards;
-            pointer-events: none;
-        }
-    </style>
+    .zone-enemy { background-color: rgba(127, 29, 29, 0.24); border: 1px solid rgba(239, 68, 68, 0.22); }
+    .zone-mid   { background-color: rgba(30, 41, 59, 0.48); border: 1px solid rgba(71, 85, 105, 0.30); }
+    .zone-player{ background-color: rgba(30, 58, 138, 0.24); border: 1px solid rgba(59, 130, 246, 0.22); }
+
+    .cell-forest {
+      background-image: radial-gradient(circle at center, rgba(22, 101, 52, 0.62), rgba(20, 83, 45, 0.85));
+      border-color: rgba(74, 222, 128, 0.45) !important;
+    }
+
+    .cell-valid-move {
+      box-shadow: inset 0 0 0 2px #38bdf8;
+      background-color: rgba(56, 189, 248, 0.24) !important;
+    }
+
+    .cell-valid-attack {
+      box-shadow: inset 0 0 0 1px rgba(248, 113, 113, 0.45);
+      background-color: rgba(239, 68, 68, 0.08);
+    }
+
+    .cell-valid-deploy {
+      box-shadow: inset 0 0 0 2px #34d399;
+      background-color: rgba(52, 211, 153, 0.18) !important;
+    }
+
+    .cell-spread-primary {
+      box-shadow: inset 0 0 0 2px #f97316;
+      background-color: rgba(249, 115, 22, 0.38) !important;
+    }
+
+    .cell-spread-secondary {
+      box-shadow: inset 0 0 0 1px #fbbf24;
+      background-color: rgba(251, 191, 36, 0.24) !important;
+    }
+
+    .cell-friendly-fire {
+      box-shadow: inset 0 0 0 2px #ef4444 !important;
+      background-color: rgba(239, 68, 68, 0.48) !important;
+    }
+
+    .unit-token {
+      width: 92%;
+      height: 92%;
+      border-radius: 5px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      z-index: 10;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.65);
+      pointer-events: none;
+    }
+
+    .unit-player {
+      background: linear-gradient(145deg, #1d4ed8, #1e3a8a);
+      border: 1.5px solid #93c5fd;
+    }
+
+    .unit-enemy {
+      background: linear-gradient(145deg, #b91c1c, #7f1d1d);
+      border: 1.5px solid #fca5a5;
+    }
+
+    .unit-active-ring {
+      box-shadow: 0 0 0 2.5px #facc15, 0 0 12px rgba(250, 204, 21, 0.85) !important;
+      z-index: 20;
+    }
+
+    .unit-queued-check {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      background: #10b981;
+      color: #022c22;
+      font-size: 9px;
+      font-weight: 800;
+      width: 14px;
+      height: 14px;
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #ecfdf5;
+    }
+
+    .unit-reloading-badge {
+      position: absolute;
+      top: -4px;
+      left: -4px;
+      background: #f59e0b;
+      color: #1e1b4b;
+      font-size: 8px;
+      font-weight: 800;
+      padding: 0 3px;
+      border-radius: 4px;
+      border: 1px solid #fef3c7;
+    }
+
+    .tree-cover-badge {
+      position: absolute;
+      bottom: -4px;
+      left: -4px;
+      background: #14532d;
+      color: #86efac;
+      font-size: 9px;
+      line-height: 1;
+      padding: 1px 2px;
+      border-radius: 3px;
+      border: 1px solid #4ade80;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.8);
+    }
+
+    @keyframes pulseHit {
+      0% { transform: scale(1); filter: brightness(1); }
+      40% { transform: scale(1.14); filter: brightness(1.8); }
+      100% { transform: scale(1); filter: brightness(1); }
+    }
+    .anim-hit { animation: pulseHit 0.45s ease-out; }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #161b22; }
+    ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+  </style>
 </head>
-<body class="min-h-screen flex flex-col items-center justify-between p-2 sm:p-3 gap-2">
+<body class="min-h-screen flex flex-col">
 
-    <!-- TOP BAR: Title, Mode Toggle, Round & Phase -->
-    <header class="w-full max-w-[1440px] bg-slate-900/95 border border-slate-800 rounded-2xl px-3 sm:px-4 py-2 shadow-xl flex flex-col gap-2">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-            <div class="flex items-center gap-2.5">
-                <div class="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/40 flex items-center justify-center text-xl">
-                    🌲
-                </div>
-                <div>
-                    <h1 class="font-roman text-sm sm:text-base font-black tracking-wide text-amber-300">
-                        TEUTOBURG: TACTICAL AMBUSH IN THE WOODS
-                    </h1>
-                    <p class="text-[11px] text-slate-400">
-                        18×10 Battlefield • Simultaneous WEGO • Quarter-Step Collisions • Volley Dispersion
-                    </p>
-                </div>
-            </div>
+  <!-- Top Header -->
+  <header class="bg-slate-900/95 border-b border-slate-800 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-40">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-lg bg-amber-500/15 border border-amber-500/40 flex items-center justify-center text-lg">
+        🌲
+      </div>
+      <div>
+        <h1 class="text-base sm:text-lg font-bold tracking-wider text-amber-400">TEUTOBURG: TACTICAL AMBUSH IN THE WOODS</h1>
+        <p class="text-[11px] text-slate-400">Blind Simultaneous WEGO • Quarter-Step Collision Kinematics • Simultaneous Clash Clusters</p>
+      </div>
+    </div>
 
-            <div class="flex items-center gap-2 flex-wrap">
-                <div class="flex items-center bg-slate-950 border border-slate-700 rounded-lg p-0.5 text-[11px] font-bold">
-                    <button id="btn-mode-bot" class="px-2.5 py-1 rounded-md bg-amber-500 text-slate-950 transition">🤖 1 vs Bot</button>
-                    <button id="btn-mode-pvp" class="px-2.5 py-1 rounded-md text-slate-300 hover:text-white transition">👥 1 vs 1</button>
-                </div>
-                <span id="round-badge" class="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-600 text-xs font-bold text-slate-200">
-                    Round 1
-                </span>
-                <span id="phase-badge" class="px-3 py-1 rounded-lg bg-sky-500/20 border border-sky-500/40 text-xs font-extrabold uppercase tracking-wide text-sky-300">
-                    1. Secret Deployment
-                </span>
-                <button id="btn-rules" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-xs font-bold text-slate-200 transition">
-                    📖 Field Manual
-                </button>
-                <button id="btn-restart" class="px-2.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-xs font-bold text-white shadow transition">
-                    ↻ Reset
-                </button>
-            </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <!-- Game Mode Selector -->
+      <div class="flex items-center bg-slate-950 border border-slate-700 rounded-lg p-0.5 text-xs">
+        <button id="btn-mode-bot" onclick="setGameMode('bot')" class="px-2.5 py-1 rounded-md font-semibold bg-amber-600 text-white transition">
+          🤖 1 vs Bot
+        </button>
+        <button id="btn-mode-pvp" onclick="setGameMode('pvp')" class="px-2.5 py-1 rounded-md font-semibold text-slate-400 hover:text-slate-200 transition">
+          👥 1 vs 1 (Pass & Play)
+        </button>
+      </div>
+
+      <span id="phase-badge" class="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+        PHASE: SECRET DEPLOYMENT
+      </span>
+      <span id="round-badge" class="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700">
+        Round 1
+      </span>
+      <button onclick="openRulesModal()" class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
+        📜 Tactical Field Manual
+      </button>
+      <button onclick="resetGame()" class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-rose-950/70 hover:bg-rose-900 text-rose-200 border border-rose-800/70 transition">
+        ↺ New Battle
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Workspace -->
+  <main class="flex-1 max-w-[1440px] w-full mx-auto p-3 flex flex-col gap-3">
+
+    <!-- Top Roster Bar -->
+    <div class="bg-slate-900/90 border border-slate-800 rounded-xl px-3.5 py-2 flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-2">
+        <span id="roster-title-label" class="text-[11px] font-bold uppercase tracking-wider text-blue-300">Your Legions (Click to Command):</span>
+      </div>
+      <div id="roster-strip" class="flex flex-wrap items-center gap-1.5 flex-1"></div>
+      <div class="flex items-center gap-3 text-xs">
+        <span class="text-rose-400 font-semibold">Enemy (Left): <strong id="enemy-total-men">5,620</strong></span>
+        <span class="text-slate-600">|</span>
+        <span class="text-blue-400 font-semibold">Player (Right): <strong id="player-total-men">5,620</strong></span>
+      </div>
+    </div>
+
+    <!-- Full-Width Horizontal Battlefield -->
+    <div class="bg-slate-900/85 border border-slate-800 rounded-xl p-3 flex flex-col items-center">
+      <div class="w-full flex flex-wrap items-center justify-between gap-2 mb-2 text-xs text-slate-400">
+        <div class="flex items-center gap-3">
+          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-rose-700 inline-block"></span> Enemy Zone (Cols 1–5)</span>
+          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-emerald-700 inline-block"></span> Woods (Anti-Cav & -40% Arrow Dmg, -30% Archer Range)</span>
+          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-blue-700 inline-block"></span> Player Zone (Cols 14–18)</span>
         </div>
-
-        <!-- Quick Squad Selector Bar (During Simultaneous Planning) -->
-        <div id="squad-bar" class="hidden flex items-center justify-between gap-2 bg-slate-950/80 border border-slate-800 rounded-lg px-3 py-1.5">
-            <span id="squad-bar-label" class="text-[11px] font-bold uppercase tracking-wider text-sky-400 shrink-0">⚔️ Your Legion:</span>
-            <div id="squad-selector-pills" class="flex items-center gap-1.5 overflow-x-auto py-0.5 flex-1"></div>
-            <span id="orders-ready-text" class="text-[11px] font-bold text-amber-400 shrink-0">0 / 8 Orders Plotted</span>
+        <div id="hover-readout" class="font-mono text-amber-300 text-xs">
+          Hover over any square for terrain & volley spread details
         </div>
-    </header>
+      </div>
 
-    <!-- MAIN WORKSPACE: Rotated 18x10 Battlefield + Right Tactical Command & Log Panel -->
-    <main class="w-full max-w-[1440px] flex-1 flex flex-col xl:flex-row items-stretch justify-center gap-3">
+      <div class="battle-grid-container flex justify-center">
+        <div id="battle-grid" class="battle-grid">
+          <svg id="planning-svg" class="absolute inset-0 w-full h-full pointer-events-none z-20"></svg>
+          <svg id="projectile-svg" class="absolute inset-0 w-full h-full pointer-events-none z-30"></svg>
+        </div>
+      </div>
+    </div>
 
-        <!-- LEFT / CENTER: 18-Column x 10-Row Battlefield -->
-        <section class="flex-1 bg-slate-900/90 border border-slate-800 rounded-2xl p-2 sm:p-3 shadow-2xl flex flex-col justify-between">
-            <div class="flex flex-wrap items-center justify-between gap-2 px-1 pb-1.5 text-[11px]">
-                <div class="flex items-center gap-3 flex-wrap">
-                    <span class="font-bold text-rose-400">◀ Left (Cols 1–5): Enemy / P2 Zone</span>
-                    <span class="text-slate-600">|</span>
-                    <span class="font-bold text-emerald-400">🌲 Woods: -40% Arrow DMG, Stops Cavalry Charge, Archer Range 4 (6 in open)</span>
-                    <span class="text-slate-600">|</span>
-                    <span class="font-bold text-sky-400">Right (Cols 14–18): Player / P1 Zone ▶</span>
-                </div>
-                <div id="hover-coord-readout" class="font-mono text-amber-300 font-bold">Grid Ready</div>
-            </div>
+    <!-- Bottom Tactical Command Deck & Battle Chronicle -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-3">
 
-            <!-- Grid + SVG Trajectory & Continuous Movement Overlay -->
-            <div class="relative w-full my-auto">
-                <div id="col-headers" class="grid mb-1 text-[9px] sm:text-[10px] font-bold text-slate-400" style="grid-template-columns: 20px repeat(18, minmax(0, 1fr));"></div>
-
-                <div class="relative">
-                    <div id="battlefield-grid" class="grid gap-0.5 sm:gap-1" style="grid-template-columns: 20px repeat(18, minmax(0, 1fr));"></div>
-
-                    <!-- SVG Trajectory Overlay (Parabolic Arcs & Movement Paths) -->
-                    <svg id="arrows-layer" viewBox="0 0 1900 1000" preserveAspectRatio="none" class="absolute inset-0 w-full h-full pointer-events-none z-20"></svg>
-
-                    <!-- Continuous Quarter-Step Unit Layer (Active during Execution) -->
-                    <div id="continuous-units-layer" class="hidden absolute inset-0 pointer-events-none z-30"></div>
-                </div>
-            </div>
-
-            <!-- Compact Terrain & Mechanics Legend -->
-            <div class="flex flex-wrap items-center justify-between gap-2 px-1 pt-2 border-t border-slate-800/80 text-[10px] text-slate-400">
-                <div class="flex items-center gap-3 flex-wrap">
-                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-sky-500/40 border border-sky-400 inline-block"></span> Move</span>
-                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-rose-500/40 border border-rose-400 inline-block"></span> Target</span>
-                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-amber-500/40 border border-amber-300 inline-block"></span> Volley Spread</span>
-                    <span>🐎 Cav: 1–5 move (4–5 splits non-spears)</span>
-                    <span>🏹 Archers: 6 rng (4 in 🌲), spread volley</span>
-                    <span>🪨 Catapult: Stationary, 4–18 rng, 5-tile cross, 1-rd reload</span>
-                </div>
-            </div>
-        </section>
-
-        <!-- RIGHT PANEL: Command Controls, Inspector & Battle Log -->
-        <aside class="w-full xl:w-[360px] flex flex-col gap-2.5 shrink-0">
-
-            <!-- Command & Phase Card -->
-            <div class="bg-slate-900/95 border border-slate-700/80 rounded-2xl p-3 shadow-xl flex flex-col gap-2.5">
-                <div class="flex items-center justify-between border-b border-slate-800 pb-1.5">
-                    <h2 id="command-panel-title" class="font-roman text-xs sm:text-sm font-black text-amber-300 uppercase tracking-wide">
-                        Deployment Phase
-                    </h2>
-                    <span id="active-slot-pill" class="text-[11px] font-bold text-slate-400"></span>
-                </div>
-
-                <p id="command-instructions" class="text-xs text-slate-300 leading-relaxed">
-                    Select a unit below and click any tile in your deployment zone (<strong>Columns 14–18</strong>). Woods (🌲) hide Archers and stop Cavalry charges.
-                </p>
-
-                <!-- SETUP ROSTER -->
-                <div id="setup-panel" class="flex flex-col gap-2">
-                    <div class="flex justify-between items-center text-[11px] font-bold text-slate-400">
-                        <span id="setup-army-label">Your Legion (8 Units):</span>
-                        <button id="btn-auto-deploy" class="text-sky-400 hover:text-sky-300 underline">Auto-Deploy</button>
-                    </div>
-                    <div id="setup-unit-list" class="grid grid-cols-2 gap-1.5"></div>
-                    <button id="btn-start-battle" disabled class="w-full py-2.5 mt-2 rounded-xl font-extrabold text-xs uppercase tracking-wider bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-white shadow-lg transition cursor-pointer disabled:cursor-not-allowed">
-                        ⚔️ Lock Formation &amp; Begin
-                    </button>
-                </div>
-
-                <!-- SIMULTANEOUS PLANNING ORDERS PANEL -->
-                <div id="planning-panel" class="hidden flex flex-col gap-2.5">
-                    <div id="active-squad-card" class="bg-slate-950/90 border border-amber-500/40 rounded-xl p-2.5"></div>
-
-                    <div class="flex flex-col gap-1.5">
-                        <button id="btn-split-squad" class="hidden w-full py-2 px-3 rounded-lg font-bold text-xs bg-indigo-600 hover:bg-indigo-500 text-white shadow transition flex items-center justify-center gap-1.5">
-                            <span>✂️ Split Squad in Two (Once)</span>
-                        </button>
-
-                        <div class="grid grid-cols-2 gap-1.5">
-                            <button id="btn-hold-position" class="py-2 px-2 rounded-lg font-bold text-xs bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 transition">
-                                🛡️ Hold Move
-                            </button>
-                            <button id="btn-clear-attack" class="py-2 px-2 rounded-lg font-bold text-xs bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 transition">
-                                ✖️ Clear Aim
-                            </button>
-                        </div>
-
-                        <button id="btn-next-squad" class="w-full py-2 px-3 rounded-lg font-bold text-xs bg-sky-800/80 hover:bg-sky-700 disabled:bg-slate-800 disabled:text-slate-500 disabled:border-slate-700 disabled:cursor-not-allowed border border-sky-500/50 text-sky-100 transition">
-                            ➡️ Select Next Friendly Squad
-                        </button>
-
-                        <!-- AI Assistant / External Play-Test Clipboard Bridge -->
-                        <div class="grid grid-cols-2 gap-1.5 pt-1 border-t border-slate-800">
-                            <button id="btn-copy-field" class="py-1.5 px-2 rounded-lg font-bold text-[11px] bg-slate-800 hover:bg-slate-700 border border-slate-600 text-emerald-300 transition">
-                                📋 Copy Field
-                            </button>
-                            <button id="btn-paste-orders" class="py-1.5 px-2 rounded-lg font-bold text-[11px] bg-slate-800 hover:bg-slate-700 border border-slate-600 text-purple-300 transition">
-                                📥 Paste AI Orders
-                            </button>
-                        </div>
-
-                        <button id="btn-execute-round" class="w-full py-3 px-3 mt-1 rounded-xl font-extrabold text-xs uppercase tracking-wider bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-lg border border-amber-300/70 transition">
-                            🔒 Confirm Orders &amp; Reveal Bot
-                        </button>
-                    </div>
-
-                    <div class="bg-slate-950/70 border border-slate-800 rounded-lg p-2 text-[11px] text-slate-400 space-y-1">
-                        <div><strong class="text-sky-300">1. Plot Orders:</strong> Select squads in the top bar &amp; click tiles to plot move/attack.</div>
-                        <div><strong class="text-emerald-300">2. AI Suggestion Bridge:</strong> Use <strong>Copy Field</strong> to export positions, then <strong>Paste AI Orders</strong> to load editable suggestions.</div>
-                        <div><strong class="text-amber-300">3. Confirm &amp; Reveal:</strong> Confirm orders (passes turn secretly in 1v1), then click <strong>Execute Battle</strong>!</div>
-                    </div>
-                </div>
-
-                <!-- EXECUTION STATUS PANEL -->
-                <div id="execution-panel" class="hidden flex flex-col gap-2">
-                    <div id="execution-status-box" class="bg-slate-950/90 border border-rose-500/40 rounded-xl p-3 text-xs text-slate-200">
-                        ⚔️ Resolving simultaneous movement, collisions, and volleys...
-                    </div>
-                </div>
-            </div>
-
-            <!-- Tile & Squad Inspector -->
-            <div class="bg-slate-900/90 border border-slate-700/80 rounded-2xl p-3 shadow-xl">
-                <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">🔍 Tactical Inspector</div>
-                <div id="tile-inspector" class="text-xs text-slate-300 space-y-1">
-                    <div class="text-slate-400 italic">Hover over any tile or unit to inspect terrain, defense &amp; volley spread.</div>
-                </div>
-            </div>
-
-            <!-- Army Manpower Summary -->
-            <div class="bg-slate-900/90 border border-slate-700/80 rounded-2xl p-3 shadow-xl grid grid-cols-2 gap-2 text-center">
-                <div class="bg-sky-950/50 border border-sky-800/50 rounded-lg p-2">
-                    <div id="p1-summary-label" class="text-[10px] font-bold uppercase text-sky-400">Your Army</div>
-                    <div id="player-total-men" class="text-base font-black text-white">5,220</div>
-                    <div class="text-[10px] text-slate-400">Total Strength</div>
-                </div>
-                <div class="bg-rose-950/50 border border-rose-800/50 rounded-lg p-2">
-                    <div id="p2-summary-label" class="text-[10px] font-bold uppercase text-rose-400">Enemy Legion</div>
-                    <div id="enemy-total-men" class="text-base font-black text-white">5,220</div>
-                    <div class="text-[10px] text-slate-400">Total Strength</div>
-                </div>
-            </div>
-
-            <!-- Battle Log -->
-            <div class="flex-1 bg-slate-900/90 border border-slate-700/80 rounded-2xl p-3 shadow-xl flex flex-col min-h-[150px] max-h-[240px]">
-                <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 flex justify-between">
-                    <span>📜 Chronicle of the Battle</span>
-                    <span class="text-slate-500">Latest first</span>
-                </div>
-                <div id="battle-log" class="flex-1 overflow-y-auto space-y-1 text-[11px] pr-1"></div>
-            </div>
-        </aside>
-    </main>
-
-    <!-- GAME OVER MODAL -->
-    <div id="gameover-modal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-slate-900 border-2 border-amber-500/60 rounded-2xl max-w-sm w-full p-6 text-center shadow-2xl">
-            <div id="gameover-emoji" class="text-5xl mb-2">🏆</div>
-            <h2 id="gameover-title" class="font-roman text-2xl font-black text-amber-300 mb-2">Victory!</h2>
-            <p id="gameover-msg" class="text-xs sm:text-sm text-slate-300 mb-5"></p>
-            <button id="btn-play-again" class="w-full py-3 rounded-xl font-extrabold text-sm bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-lg transition">
-                Fight Again
+      <!-- Active Unit & Action Controls (7 cols) -->
+      <div class="lg:col-span-7 bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between gap-3">
+        <div class="flex flex-wrap items-start justify-between gap-2 border-b border-slate-800 pb-2.5">
+          <div>
+            <span class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Active Squad</span>
+            <h2 id="active-unit-title" class="text-base font-bold text-amber-300 mt-0.5">Deploy Your Forces</h2>
+          </div>
+          <div class="flex flex-wrap items-center gap-1.5">
+            <button id="btn-copy-field" onclick="copyFieldToClipboard()"
+              class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-700/60 transition"
+              title="Copy current unit positions to clipboard for AI coaching">
+              📋 Copy Field
             </button>
+            <button id="btn-paste-ai" onclick="openAiPasteModal()"
+              class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-700/60 transition"
+              title="Paste AI move & attack suggestions">
+              📥 Paste AI Orders
+            </button>
+            <button id="btn-next-unit" onclick="selectNextFriendlyUnit()"
+              class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-600/40 transition disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-slate-800">
+              ⏭ Select Next Friendly Squad
+            </button>
+          </div>
         </div>
-    </div>
 
-    <!-- TACTICAL MANUAL MODAL -->
-    <div id="rules-modal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-xl w-full p-5 text-left shadow-2xl max-h-[88vh] overflow-y-auto">
-            <div class="flex justify-between items-center border-b border-slate-800 pb-2.5 mb-3">
-                <h2 class="font-roman text-base font-black text-amber-300">📖 Teutoburg Field Manual</h2>
-                <button id="btn-close-rules" class="text-slate-400 hover:text-white text-xl font-bold px-2">&times;</button>
-            </div>
-            <div class="space-y-2.5 text-xs text-slate-300 leading-relaxed">
-                <div>
-                    <h3 class="font-bold text-sky-400">1. Simultaneous WEGO &amp; Quarter-Step Clashes</h3>
-                    <p>Both sides plot orders during Tactical Pause (with secret handoff in <strong>1 vs 1</strong> mode). After confirming orders, trajectories reveal before you click <strong>Execute Battle</strong>. Movement resolves in smooth quarter-steps so charging armies collide mid-path and trade mutual casualties simultaneously.</p>
-                </div>
-                <div>
-                    <h3 class="font-bold text-emerald-400">2. Woods (🌲) &amp; Terrain</h3>
-                    <p>Units inside 🌲 take <strong>-40% arrow damage</strong> and are immune to Cavalry charge-splits. Archers firing from 🌲 have their max range reduced from <strong>6 to 4</strong>.</p>
-                </div>
-                <div>
-                    <h3 class="font-bold text-amber-400">3. Legionaries &amp; Spearmen Stances</h3>
-                    <p>Stationary squads gain <strong>+35% DEF</strong>. Advancing/sideways 1 tile keeps <strong>+20% DEF</strong>; 2 tiles keeps <strong>+5% DEF</strong>. Retreating 1–2 tiles drops to <strong>0% / -5% DEF</strong>. Spearmen counter Cavalry charges and can intercept passing enemies when holding or aiming at their path.</p>
-                </div>
-                <div>
-                    <h3 class="font-bold text-rose-400">4. Cavalry Charge &amp; Formation Split</h3>
-                    <p>Cavalry moves <strong>1–5 tiles</strong>. Charging <strong>4–5 tiles</strong> into non-spears in open terrain splits them into two sub-squads that can later re-merge or act independently (you can also voluntarily split multi-man squads once).</p>
-                </div>
-                <div>
-                    <h3 class="font-bold text-purple-400">5. Volley Spread, Traces &amp; Stationary Catapults</h3>
-                    <p>Longer ranged shots spread into adjacent tiles (hitting friendly or enemy units in the splash zone, including <strong>55% / 40% / 25% grazing damage</strong> on movement traces). Catapults stay anchored in your zone (range <strong>4–18</strong>, 5-tile cross AoE), reload every other round, and deal capped counter-battery losses in catapult duels.</p>
-                </div>
-            </div>
+        <div id="active-unit-details" class="text-xs text-slate-300 grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <p class="sm:col-span-2">Place your 8 squads in your deployment zone (<strong>Columns 14–18</strong> on the right), or click <strong>Auto-Deploy Formation</strong>.</p>
         </div>
-    </div>
 
-    <!-- PASTE AI SUGGESTIONS MODAL -->
-    <div id="paste-modal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-slate-900 border border-purple-500/60 rounded-2xl max-w-lg w-full p-5 shadow-2xl space-y-3">
-            <div class="flex justify-between items-center border-b border-slate-800 pb-2">
-                <h2 class="font-roman text-base font-black text-purple-300">📥 Paste AI Orders / Tactical Suggestions</h2>
-                <button id="btn-close-paste" class="text-slate-400 hover:text-white text-xl font-bold px-2">&times;</button>
-            </div>
-            <p class="text-xs text-slate-300 leading-relaxed">
-                Paste orders from your AI chat below. Format per squad (comma or newline separated):<br>
-                <code class="text-emerald-300 bg-slate-950 px-1.5 py-0.5 rounded block mt-1">P1 move D10 atk D9, P2.1 hold atk E6, E4 move E6</code>
-                Orders apply as editable suggestions onto the board so you can tweak them before confirming!
-            </p>
-            <textarea id="ai-orders-input" rows="4" placeholder="e.g. P1 move C11 atk C10, P2 hold atk D8, P4 move E12" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-slate-100 font-mono focus:outline-none focus:border-purple-400"></textarea>
-            <div class="flex justify-end gap-2">
-                <button id="btn-cancel-paste" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300">Cancel</button>
-                <button id="btn-apply-ai-orders" class="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-xs font-extrabold text-white shadow">Apply Suggestions</button>
-            </div>
+        <!-- Deployment Controls -->
+        <div id="deploy-controls" class="flex flex-wrap gap-2">
+          <button onclick="autoDeployActiveSide()" class="flex-1 py-2 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition">
+            ⚡ Auto-Deploy Formation
+          </button>
+          <button id="btn-start-battle" onclick="confirmDeployment()" disabled
+            class="flex-1 py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold shadow-lg transition">
+            ⚔️ Confirm Deployment
+          </button>
         </div>
+
+        <!-- Planning Controls -->
+        <div id="planning-controls" class="hidden flex-col gap-2">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <button id="btn-split-squad" onclick="splitCurrentSquad()"
+              class="py-1.5 px-2.5 rounded-lg bg-purple-900/50 hover:bg-purple-800/70 disabled:opacity-35 disabled:cursor-not-allowed text-purple-200 border border-purple-700/60 text-xs font-semibold transition">
+              ✂️ Split Squad
+            </button>
+            <button id="btn-merge-squad" onclick="mergeCurrentSquad()"
+              class="py-1.5 px-2.5 rounded-lg bg-teal-900/50 hover:bg-teal-800/70 disabled:opacity-35 disabled:cursor-not-allowed text-teal-200 border border-teal-700/60 text-xs font-semibold transition"
+              title="Re-combine two adjacent halves of the same split unit (must be done before moving)">
+              🔗 Merge Squad
+            </button>
+            <button id="btn-hold-pos" onclick="setHoldPosition()"
+              class="py-1.5 px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-35 disabled:cursor-not-allowed text-slate-200 border border-slate-700 text-xs font-semibold transition">
+              🛡️ Hold Position
+            </button>
+            <button id="btn-clear-order" onclick="clearCurrentOrder()"
+              class="py-1.5 px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-35 disabled:cursor-not-allowed text-rose-300 border border-slate-700 text-xs font-semibold transition">
+              ✖ Clear Order
+            </button>
+          </div>
+          <button id="btn-confirm-all" onclick="handleMainTurnAction()"
+            class="w-full py-2.5 px-3 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold shadow-lg transition">
+            👁️ Confirm Orders & Reveal Enemy Plan
+          </button>
+        </div>
+      </div>
+
+      <!-- Battle Chronicle Log (5 cols) -->
+      <div class="lg:col-span-5 bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 flex flex-col">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-2 mb-2">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">📜 Battle Chronicle</h3>
+          <span class="text-[10px] text-slate-500">Simultaneous Clash Resolution</span>
+        </div>
+        <div id="battle-log" class="flex-1 overflow-y-auto space-y-1.5 text-xs pr-1 max-h-44"></div>
+      </div>
     </div>
+  </main>
 
-    <script>
-        /**
-         * TEUTOBURG: TACTICAL AMBUSH IN THE WOODS
-         * Rotated 10 rows (A-J) x 18 columns (1-18) battlefield.
-         * Left (Cols 1-5, index 0-4): Bot / Player 2 Zone
-         * Right (Cols 14-18, index 13-17): Player / Player 1 Zone
-         */
+  <!-- Pass-and-Play Privacy Curtain Modal -->
+  <div id="privacy-modal" class="fixed inset-0 bg-slate-950/95 backdrop-blur-md hidden items-center justify-center z-50 p-4">
+    <div class="bg-slate-900 border border-amber-500/40 rounded-2xl max-w-md w-full p-6 text-center shadow-2xl space-y-4">
+      <div class="text-4xl">🛡️</div>
+      <h2 id="privacy-title" class="text-xl font-bold text-amber-400">Pass Device to Player 2</h2>
+      <p id="privacy-desc" class="text-xs text-slate-300 leading-relaxed">
+        Player 1's deployment / orders are now hidden. Hand control to Player 2 so they can secretly command their army on the left side (Columns 1–5).
+      </p>
+      <button onclick="dismissPrivacyCurtain()" class="w-full py-2.5 px-4 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold shadow-lg transition">
+        I am Ready — Reveal My Command View
+      </button>
+    </div>
+  </div>
 
-        const ROWS = 10;
-        const COLS = 18;
-        const ROW_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
+  <!-- AI Orders Paste Modal -->
+  <div id="ai-paste-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-slate-900 border border-cyan-500/40 rounded-2xl max-w-lg w-full p-5 shadow-2xl space-y-3">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+        <h2 class="text-base font-bold text-cyan-300">📥 Paste AI Tactical Orders</h2>
+        <button onclick="closeAiPasteModal()" class="text-slate-400 hover:text-white text-lg">✕</button>
+      </div>
+      <p class="text-xs text-slate-300 leading-relaxed">
+        Paste commands generated by your AI assistant. Format per squad (comma or newline separated):<br/>
+        <code class="text-amber-300 bg-slate-950 px-1.5 py-0.5 rounded">P1 move D10 atk D9, P2 move E14 atk E10, P8 hold atk E5</code><br/>
+        Optional actions: <code class="text-purple-300">split</code> (splits before moving) or <code class="text-teal-300">merge</code> (re-merges adjacent halves before moving).
+      </p>
+      <textarea id="ai-orders-textarea" rows="5"
+        placeholder="Example:&#10;P1 move D10 atk D9&#10;P2 move E14 atk E9&#10;P4 move E13 atk E12&#10;P8 hold atk E4"
+        class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-xs font-mono text-slate-200 focus:outline-none focus:border-cyan-500"></textarea>
+      <div class="flex justify-end gap-2">
+        <button onclick="closeAiPasteModal()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300">Cancel</button>
+        <button onclick="applyPastedAiOrders()" class="px-4 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-xs font-bold text-white">
+          Apply Editable Orders to Board
+        </button>
+      </div>
+    </div>
+  </div>
 
-        // Woods layout across the 10x18 battlefield
-        const FOREST_COORDS = new Set([
-            '1,2', '8,2', '3,4',
-            '1,8', '8,9',
-            '6,13', '1,15', '8,15'
-        ]);
+  <!-- Copy Field Fallback Modal (Works in strict sandboxed iframes) -->
+  <div id="copy-field-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-slate-900 border border-emerald-500/40 rounded-2xl max-w-lg w-full p-5 shadow-2xl space-y-3">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+        <h2 class="text-base font-bold text-emerald-300">📋 Battlefield Snapshot</h2>
+        <button onclick="closeCopyFieldModal()" class="text-slate-400 hover:text-white text-lg">✕</button>
+      </div>
+      <p id="copy-field-status" class="text-xs text-slate-300">
+        Snapshot generated! Press <kbd class="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700">Ctrl+C</kbd> / <kbd class="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700">Cmd+C</kbd> to copy:
+      </p>
+      <textarea id="copy-field-textarea" rows="4" readonly
+        class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-xs font-mono text-emerald-200 focus:outline-none focus:border-emerald-500"></textarea>
+      <div class="flex justify-end gap-2">
+        <button onclick="selectAndExecCopy()" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white">
+          Select & Copy
+        </button>
+        <button onclick="closeCopyFieldModal()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300">Done</button>
+      </div>
+    </div>
+  </div>
 
-        const UNIT_TYPES = {
-            cavalry: {
-                name: 'Cavalry',
-                icon: '🐎',
-                maxMen: 400,
-                moveRange: 5,
-                minRange: 1,
-                maxRange: 1,
-                baseAtk: 135,
-                baseDef: 15,
-                canSplit: true,
-                stationary: false
-            },
-            archer: {
-                name: 'Archers',
-                icon: '🏹',
-                maxMen: 600,
-                moveRange: 2,
-                minRange: 1,
-                maxRange: 6,
-                baseAtk: 95,
-                baseDef: 10,
-                canSplit: true,
-                stationary: false
-            },
-            legionary: {
-                name: 'Legionaries',
-                icon: '🛡️',
-                maxMen: 1000,
-                moveRange: 2,
-                minRange: 1,
-                maxRange: 1,
-                baseAtk: 120,
-                baseDef: 35,
-                canSplit: true,
-                stationary: false
-            },
-            spearman: {
-                name: 'Spearmen',
-                icon: '🔱',
-                maxMen: 1000,
-                moveRange: 2,
-                minRange: 1,
-                maxRange: 1,
-                baseAtk: 115,
-                baseDef: 32,
-                canSplit: true,
-                stationary: false
-            },
-            catapult: {
-                name: 'Catapult',
-                icon: '🪨',
-                maxMen: 20,
-                moveRange: 0,
-                minRange: 4,
-                maxRange: 18,
-                baseAtk: 210,
-                baseDef: 12,
-                canSplit: false,
-                stationary: true
+  <!-- Tactical Field Manual Modal -->
+  <div id="rules-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full max-h-[88vh] overflow-y-auto p-6 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+        <h2 class="text-lg font-bold text-amber-400">📜 Teutoburg Tactical Field Manual</h2>
+        <button onclick="closeRulesModal()" class="text-slate-400 hover:text-white text-lg">✕</button>
+      </div>
+      <div class="space-y-3 text-xs text-slate-300 leading-relaxed">
+        <p><strong class="text-amber-300">1. Blind Simultaneous WEGO & Quarter-Step Physics:</strong> Both commanders issue orders to all living units simultaneously. Clicking <em>Confirm Orders</em> reveals the enemy's planned arrows before executing 16 fractional quarter-steps where opposing forces collide head-on at exact meeting squares.</p>
+        <p><strong class="text-amber-300">2. Simultaneous Clash Clustering:</strong> All combat casualties in a clash are computed from simultaneous pre-clash strength—outnumbered units always deal their counter-casualties before falling.</p>
+        <p><strong class="text-amber-300">3. Directional Shield Wall (Legionaries & Spearmen):</strong><br/>
+          • Stationary (0 tiles): <strong>+35% DEF</strong> (Spearmen also get <strong>+50% vs Cavalry</strong>).<br/>
+          • 1 tile forward/sideways: <strong>+20% DEF</strong> | 2 tiles forward/sideways: <strong>+5% DEF</strong>.<br/>
+          • 1 tile retreat: <strong>0% DEF</strong> | 2 tiles retreat: <strong>-5% DEF</strong>.<br/>
+          • <em>Spearman Opportunity Thrust:</em> Spearmen holding position or aiming along a passing enemy's trace strike units passing adjacent to them.
+        </p>
+        <p><strong class="text-amber-300">4. Cavalry Charge & Formation Splitting:</strong> Moves 1–5 tiles. Charging 4–5 tiles in open terrain splits non-spear squads into two halves on adjacent squares. You may also voluntarily <strong>Split</strong> any unified multi-man squad, or <strong>Merge</strong> two orthogonally adjacent halves of the same split unit back into a single unified squad before moving.</p>
+        <p><strong class="text-amber-300">5. Deterministic Volley Dispersion & Speed-Scaled Grazing:</strong><br/>
+          • <strong>Archers (Range 6 open, 4 in Woods):</strong> 1–2 tiles = 100% center; 3–4 tiles = 70% center + 15% front/back; 5–6 tiles = 60% center + 10% orthogonal cross.<br/>
+          • <strong>Catapults (Stationary, Range 4–18, 1-Round Reload):</strong> 4–9 tiles = 70% center + 7.5% cross; 10–18 tiles = 40% center + 15% cross. Hits 100% vs stationary, 65% vs 1-tile walk, 35% vs 2-tile sprint, 0% vs galloping Cavalry. Counter-battery duels deal at most ~8 engines per volley.<br/>
+          • <strong>Movement Traces:</strong> Firing onto a square an enemy vacated deals <strong>55% grazing</strong> (if they walked 1 tile), <strong>40%</strong> (if they ran 2 tiles), and <strong>25%</strong> (Archers vs Cavalry).
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // =========================================================================
+    // 1. HORIZONTAL BATTLEFIELD GEOMETRY (10 Rows A-J x 18 Cols 1-18)
+    // =========================================================================
+    const ROWS = 10;
+    const COLS = 18;
+    const ROW_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
+
+    const FOREST_COORDS = new Set([
+      'B3', 'I3', 'D5',
+      'B8', 'I8', 'B11', 'I11',
+      'G14', 'B16', 'I16'
+    ]);
+
+    function toCoord(r, c) {
+      return `${ROW_LETTERS[r]}${c + 1}`;
+    }
+
+    function parseCoord(str) {
+      const clean = str.trim().toUpperCase();
+      const match = clean.match(/^([A-J])(\d{1,2})$/);
+      if (!match) return null;
+      const r = ROW_LETTERS.indexOf(match[1]);
+      const c = parseInt(match[2], 10) - 1;
+      if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return null;
+      return { r, c };
+    }
+
+    function isForest(r, c) {
+      return FOREST_COORDS.has(toCoord(r, c));
+    }
+
+    function manhattan(r1, c1, r2, c2) {
+      return Math.abs(r1 - r2) + Math.abs(c1 - c2);
+    }
+
+    function inBounds(r, c) {
+      return r >= 0 && r < ROWS && c >= 0 && c < COLS;
+    }
+
+    // =========================================================================
+    // 2. UNIT TEMPLATES & ARMY ROSTER (8 UNITS PER SIDE)
+    // =========================================================================
+    const UNIT_TEMPLATES = [
+      { slot: 1, type: 'cavalry',   name: 'Cavalry',       icon: '🐎', maxMen: 400,  move: 5, minRange: 1, maxRange: 1, baseAtk: 130, baseDef: 22 },
+      { slot: 2, type: 'archer',    name: 'Archers I',     icon: '🏹', maxMen: 600,  move: 2, minRange: 1, maxRange: 6, baseAtk: 105, baseDef: 14 },
+      { slot: 3, type: 'archer',    name: 'Archers II',    icon: '🏹', maxMen: 600,  move: 2, minRange: 1, maxRange: 6, baseAtk: 105, baseDef: 14 },
+      { slot: 4, type: 'legionary', name: 'Legionaries I', icon: '🗡️', maxMen: 1000, move: 2, minRange: 1, maxRange: 1, baseAtk: 115, baseDef: 38 },
+      { slot: 5, type: 'legionary', name: 'Legionaries II',icon: '🗡️', maxMen: 1000, move: 2, minRange: 1, maxRange: 1, baseAtk: 115, baseDef: 38 },
+      { slot: 6, type: 'spearman',  name: 'Spearmen I',    icon: '🔱', maxMen: 1000, move: 2, minRange: 1, maxRange: 1, baseAtk: 100, baseDef: 42 },
+      { slot: 7, type: 'spearman',  name: 'Spearmen II',   icon: '🔱', maxMen: 1000, move: 2, minRange: 1, maxRange: 1, baseAtk: 100, baseDef: 42 },
+      { slot: 8, type: 'catapult',  name: 'Catapult',      icon: '☄️', maxMen: 20,   move: 0, minRange: 4, maxRange: 18,baseAtk: 240, baseDef: 12 }
+    ];
+
+    // =========================================================================
+    // 3. GAME STATE (SUPPORTS 1vsBOT & 1vs1 HOT-SEAT PASS-AND-PLAY)
+    // =========================================================================
+    let gameState = {
+      gameMode: 'bot', // 'bot' | 'pvp'
+      phase: 'deploy', // 'deploy' | 'planning' | 'revealed' | 'executing' | 'gameover'
+      activeCommander: 'player', // 'player' (P1, Right) | 'enemy' (P2, Left)
+      round: 1,
+      units: [],
+      selectedUnitId: null,
+      deployingUnitId: null,
+      orders: {}, // unitId -> { moveTo: {r,c}, attackTo: {r,c}|null, confirmed: bool }
+      visualPositions: {}, // unitId -> { r, c } fractional positions during 16-tick animation
+      hoverCell: null
+    };
+
+    function createArmy(owner) {
+      const prefix = owner === 'player' ? 'P' : 'E';
+      return UNIT_TEMPLATES.map(t => ({
+        id: `${prefix}${t.slot}`,
+        owner,
+        slot: t.slot,
+        subLabel: '',
+        type: t.type,
+        name: t.name,
+        icon: t.icon,
+        men: t.maxMen,
+        maxMen: t.maxMen,
+        move: t.move,
+        minRange: t.minRange,
+        maxRange: t.maxRange,
+        baseAtk: t.baseAtk,
+        baseDef: t.baseDef,
+        r: null,
+        c: null,
+        hasSplit: false,
+        reloading: false,
+        justFiredCatapult: false,
+        lastMovedDist: 0,
+        lastMoveDir: 'none'
+      }));
+    }
+
+    function setGameMode(mode) {
+      if (gameState.gameMode === mode) return;
+      gameState.gameMode = mode;
+      document.getElementById('btn-mode-bot').className = mode === 'bot'
+        ? 'px-2.5 py-1 rounded-md font-semibold bg-amber-600 text-white transition'
+        : 'px-2.5 py-1 rounded-md font-semibold text-slate-400 hover:text-slate-200 transition';
+      document.getElementById('btn-mode-pvp').className = mode === 'pvp'
+        ? 'px-2.5 py-1 rounded-md font-semibold bg-amber-600 text-white transition'
+        : 'px-2.5 py-1 rounded-md font-semibold text-slate-400 hover:text-slate-200 transition';
+      resetGame();
+    }
+
+    function resetGame() {
+      gameState.phase = 'deploy';
+      gameState.activeCommander = 'player';
+      gameState.round = 1;
+      gameState.units = [...createArmy('player'), ...createArmy('enemy')];
+      gameState.orders = {};
+      gameState.visualPositions = {};
+      gameState.hoverCell = null;
+
+      const p1Units = gameState.units.filter(u => u.owner === 'player');
+      gameState.deployingUnitId = p1Units[0].id;
+      gameState.selectedUnitId = p1Units[0].id;
+
+      document.getElementById('battle-log').innerHTML = '';
+      if (gameState.gameMode === 'bot') {
+        addLog('🤖 1 vs Bot Mode: Deploy your 8 squads on the right (Cols 14–18).', 'text-amber-300');
+      } else {
+        addLog('👥 1 vs 1 Pass & Play Mode: Player 1 (Right, Cols 14–18) deploys first in secret.', 'text-amber-300');
+      }
+      updateUI();
+    }
+
+    function addLog(msg, colorClass = 'text-slate-300') {
+      const logEl = document.getElementById('battle-log');
+      const entry = document.createElement('div');
+      entry.className = `p-1.5 rounded bg-slate-950/75 border border-slate-800/80 ${colorClass}`;
+      entry.innerHTML = msg;
+      logEl.prepend(entry);
+    }
+
+    function getUnit(id) {
+      return gameState.units.find(u => u.id === id);
+    }
+
+    function getLivingUnits(owner = null) {
+      return gameState.units.filter(u => u.men > 0 && u.r !== null && (!owner || u.owner === owner));
+    }
+
+    function getUnitAt(r, c, ignoreId = null) {
+      return gameState.units.find(u => u.men > 0 && u.r === r && u.c === c && u.id !== ignoreId);
+    }
+
+    function getEffectiveAttack(unit) {
+      const ratio = unit.men / unit.maxMen;
+      return unit.baseAtk * (0.4 + 0.6 * ratio);
+    }
+
+    function getEffectiveRange(unit, r = unit.r, c = unit.c) {
+      if (unit.type === 'archer' && isForest(r, c)) {
+        return Math.max(2, Math.floor(unit.maxRange * 0.7)); // 4 tiles in trees
+      }
+      return unit.maxRange;
+    }
+
+    function getShieldWallBonus(unit) {
+      if (unit.type !== 'legionary' && unit.type !== 'spearman') return 0;
+      if (unit.lastMovedDist === 0) return 0.35;
+      if (unit.lastMoveDir === 'backward') {
+        return unit.lastMovedDist === 1 ? 0.0 : -0.05;
+      }
+      return unit.lastMovedDist === 1 ? 0.20 : 0.05;
+    }
+
+    // =========================================================================
+    // 4. PRIVACY CURTAIN FOR 1vs1 HOT-SEAT MODE
+    // =========================================================================
+    function showPrivacyCurtain(title, desc) {
+      document.getElementById('privacy-title').textContent = title;
+      document.getElementById('privacy-desc').textContent = desc;
+      const modal = document.getElementById('privacy-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function dismissPrivacyCurtain() {
+      const modal = document.getElementById('privacy-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      updateUI();
+    }
+
+    // =========================================================================
+    // 5. DEPLOYMENT LOGIC (SUPPORTS P1 & P2 SECRET DEPLOYMENT)
+    // =========================================================================
+    function isValidDeployZone(owner, c) {
+      return owner === 'player' ? (c >= 13 && c <= 17) : (c >= 0 && c <= 4);
+    }
+
+    function autoDeploySide(owner) {
+      const sideUnits = gameState.units.filter(u => u.owner === owner);
+      const layout = owner === 'player'
+        ? [
+            { slot: 1, r: 1, c: 15 },
+            { slot: 2, r: 1, c: 16 },
+            { slot: 3, r: 6, c: 13 },
+            { slot: 4, r: 3, c: 13 },
+            { slot: 5, r: 5, c: 13 },
+            { slot: 6, r: 2, c: 14 },
+            { slot: 7, r: 7, c: 14 },
+            { slot: 8, r: 4, c: 17 }
+          ]
+        : [
+            { slot: 1, r: 8, c: 2 },
+            { slot: 2, r: 3, c: 4 },
+            { slot: 3, r: 8, c: 1 },
+            { slot: 4, r: 4, c: 4 },
+            { slot: 5, r: 6, c: 4 },
+            { slot: 6, r: 2, c: 3 },
+            { slot: 7, r: 7, c: 3 },
+            { slot: 8, r: 5, c: 0 }
+          ];
+
+      layout.forEach(item => {
+        const u = sideUnits.find(x => x.slot === item.slot);
+        if (u) {
+          u.r = item.r;
+          u.c = item.c;
+        }
+      });
+    }
+
+    function autoDeployActiveSide() {
+      if (gameState.phase !== 'deploy') return;
+      const side = gameState.activeCommander;
+      autoDeploySide(side);
+      gameState.deployingUnitId = null;
+      addLog(`⚡ ${side === 'player' ? 'Player 1' : 'Player 2'} auto-deployed their battle line.`, 'text-emerald-300');
+      updateUI();
+    }
+
+    function confirmDeployment() {
+      const side = gameState.activeCommander;
+      const sideUnits = gameState.units.filter(u => u.owner === side);
+      if (sideUnits.some(u => u.r === null)) return;
+
+      if (gameState.gameMode === 'bot') {
+        autoDeploySide('enemy');
+        startPlanningRound();
+        addLog('📯 Both armies are deployed! Issue orders to your squads, then click Confirm Orders.', 'text-amber-300');
+      } else {
+        if (side === 'player') {
+          gameState.activeCommander = 'enemy';
+          const p2Units = gameState.units.filter(u => u.owner === 'enemy');
+          gameState.deployingUnitId = p2Units[0].id;
+          gameState.selectedUnitId = p2Units[0].id;
+          updateUI();
+          showPrivacyCurtain(
+            'Pass Device to Player 2 (Left Side)',
+            'Player 1 has deployed secretly on the right. Player 2 may now deploy their 8 squads in Columns 1–5.'
+          );
+        } else {
+          gameState.activeCommander = 'player';
+          startPlanningRound();
+          updateUI();
+          showPrivacyCurtain(
+            'Pass Device to Player 1 (Right Side)',
+            'Both armies are now secretly deployed! Player 1 will issue Round 1 orders first.'
+          );
+        }
+      }
+    }
+
+    // =========================================================================
+    // 6. BLIND SIMULTANEOUS PLANNING PHASE (1vsBOT & 1vs1)
+    // =========================================================================
+    function startPlanningRound() {
+      gameState.phase = 'planning';
+      gameState.activeCommander = 'player';
+      gameState.orders = {};
+      gameState.visualPositions = {};
+      gameState.hoverCell = null;
+
+      gameState.units.forEach(u => {
+        if (u.justFiredCatapult) {
+          u.reloading = true;
+          u.justFiredCatapult = false;
+        } else {
+          u.reloading = false;
+        }
+      });
+
+      const firstP1 = getLivingUnits('player')[0];
+      gameState.selectedUnitId = firstP1 ? firstP1.id : null;
+      updateUI();
+    }
+
+    function selectSquad(id) {
+      if (gameState.phase === 'deploy') {
+        const u = getUnit(id);
+        if (u && u.owner === gameState.activeCommander) {
+          gameState.deployingUnitId = id;
+          gameState.selectedUnitId = id;
+          updateUI();
+        }
+        return;
+      }
+      if (gameState.phase !== 'planning') return;
+      const u = getUnit(id);
+      if (!u || u.men <= 0 || u.owner !== gameState.activeCommander) return;
+      gameState.selectedUnitId = id;
+      updateUI();
+    }
+
+    function selectNextFriendlyUnit() {
+      if (gameState.phase !== 'planning') return;
+      const side = gameState.activeCommander;
+      const friendly = getLivingUnits(side);
+      if (friendly.length === 0) return;
+
+      const unconfirmed = friendly.find(u => !gameState.orders[u.id]);
+      if (unconfirmed) {
+        gameState.selectedUnitId = unconfirmed.id;
+      } else {
+        const idx = friendly.findIndex(u => u.id === gameState.selectedUnitId);
+        gameState.selectedUnitId = friendly[(idx + 1) % friendly.length].id;
+      }
+      updateUI();
+    }
+
+    function getOccupiedMapForPlanning(movingUnit) {
+      const occupied = new Set();
+      gameState.units.forEach(u => {
+        if (u.men <= 0 || u.r === null || u.id === movingUnit.id) return;
+        if (u.owner === movingUnit.owner && gameState.orders[u.id]) {
+          const dest = gameState.orders[u.id].moveTo;
+          occupied.add(`${dest.r},${dest.c}`);
+        } else {
+          occupied.add(`${u.r},${u.c}`);
+        }
+      });
+      return occupied;
+    }
+
+    function getValidMoveTiles(unit) {
+      if (!unit || unit.move === 0) return [];
+      const occupied = getOccupiedMapForPlanning(unit);
+      const visited = new Map();
+      const queue = [{ r: unit.r, c: unit.c, dist: 0 }];
+      visited.set(`${unit.r},${unit.c}`, 0);
+
+      while (queue.length > 0) {
+        const curr = queue.shift();
+        if (curr.dist >= unit.move) continue;
+        for (const [dr, dc] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+          const nr = curr.r + dr;
+          const nc = curr.c + dc;
+          const key = `${nr},${nc}`;
+          if (!inBounds(nr, nc)) continue;
+          if (visited.has(key)) continue;
+          if (occupied.has(key)) continue;
+          visited.set(key, curr.dist + 1);
+          queue.push({ r: nr, c: nc, dist: curr.dist + 1 });
+        }
+      }
+
+      const tiles = [];
+      visited.forEach((dist, key) => {
+        if (dist > 0) {
+          const [r, c] = key.split(',').map(Number);
+          tiles.push({ r, c, dist });
+        }
+      });
+      return tiles;
+    }
+
+    function getValidAttackTiles(unit, fromR, fromC) {
+      if (!unit) return [];
+      if (unit.type === 'catapult' && unit.reloading) return [];
+      const effRange = getEffectiveRange(unit, fromR, fromC);
+      const tiles = [];
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const dist = manhattan(fromR, fromC, r, c);
+          if (dist >= unit.minRange && dist <= effRange) {
+            tiles.push({ r, c, dist });
+          }
+        }
+      }
+      return tiles;
+    }
+
+    function getVolleySpread(unit, fromR, fromC, targetR, targetC) {
+      const dist = manhattan(fromR, fromC, targetR, targetC);
+      const spread = [];
+      if (unit.type === 'archer') {
+        const inTrees = isForest(fromR, fromC);
+        if ((!inTrees && dist <= 2) || (inTrees && dist === 1)) {
+          spread.push({ r: targetR, c: targetC, weight: 1.0, primary: true });
+        } else if ((!inTrees && dist <= 4) || (inTrees && dist === 2)) {
+          spread.push({ r: targetR, c: targetC, weight: 0.70, primary: true });
+          const dc = Math.sign(targetC - fromC);
+          const dr = dc === 0 ? Math.sign(targetR - fromR) : 0;
+          [
+            { r: targetR + dr, c: targetC + dc },
+            { r: targetR - dr, c: targetC - dc }
+          ].forEach(p => {
+            if (inBounds(p.r, p.c)) spread.push({ r: p.r, c: p.c, weight: 0.15, primary: false });
+          });
+        } else {
+          spread.push({ r: targetR, c: targetC, weight: 0.60, primary: true });
+          [[-1,0],[1,0],[0,-1],[0,1]].forEach(([dr, dc]) => {
+            const nr = targetR + dr, nc = targetC + dc;
+            if (inBounds(nr, nc)) spread.push({ r: nr, c: nc, weight: 0.10, primary: false });
+          });
+        }
+      } else if (unit.type === 'catapult') {
+        const centerW = dist <= 9 ? 0.70 : 0.40;
+        const armW = dist <= 9 ? 0.075 : 0.15;
+        spread.push({ r: targetR, c: targetC, weight: centerW, primary: true });
+        [[-1,0],[1,0],[0,-1],[0,1]].forEach(([dr, dc]) => {
+          const nr = targetR + dr, nc = targetC + dc;
+          if (inBounds(nr, nc)) spread.push({ r: nr, c: nc, weight: armW, primary: false });
+        });
+      }
+      return spread;
+    }
+
+    function getAdjacentMergeSibling(unit) {
+      if (!unit || !unit.subLabel) return null;
+      return gameState.units.find(other =>
+        other.id !== unit.id &&
+        other.men > 0 &&
+        other.owner === unit.owner &&
+        other.slot === unit.slot &&
+        other.subLabel &&
+        manhattan(unit.r, unit.c, other.r, other.c) === 1
+      ) || null;
+    }
+
+    function splitCurrentSquad() {
+      if (gameState.phase !== 'planning') return;
+      const unit = getUnit(gameState.selectedUnitId);
+      if (!unit || unit.owner !== gameState.activeCommander || unit.subLabel || unit.type === 'catapult' || unit.men < 100) return;
+
+      const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+      let emptySpot = null;
+      for (const [dr, dc] of dirs) {
+        const nr = unit.r + dr, nc = unit.c + dc;
+        if (inBounds(nr, nc) && !getUnitAt(nr, nc)) {
+          emptySpot = { r: nr, c: nc };
+          break;
+        }
+      }
+      if (!emptySpot) {
+        addLog(`⚠️ Cannot split <strong>${unit.id}</strong>: no adjacent empty square!`, 'text-amber-300');
+        return;
+      }
+
+      const halfA = Math.ceil(unit.men / 2);
+      const halfB = unit.men - halfA;
+      const baseId = unit.id;
+
+      delete gameState.orders[unit.id];
+      unit.men = halfA;
+      unit.maxMen = Math.ceil(unit.maxMen / 2);
+      unit.subLabel = 'a';
+      unit.id = `${baseId}a`;
+      unit.hasSplit = true;
+
+      const subB = {
+        ...unit,
+        id: `${baseId}b`,
+        subLabel: 'b',
+        men: halfB,
+        r: emptySpot.r,
+        c: emptySpot.c,
+        hasSplit: true
+      };
+      gameState.units.push(subB);
+      gameState.selectedUnitId = unit.id;
+
+      addLog(`✂️ <strong>${baseId}</strong> split into <strong>${unit.id} (${halfA})</strong> and <strong>${subB.id} (${halfB})</strong>!`, 'text-purple-300');
+      updateUI();
+    }
+
+    function mergeCurrentSquad() {
+      if (gameState.phase !== 'planning') return;
+      const unit = getUnit(gameState.selectedUnitId);
+      if (!unit || unit.owner !== gameState.activeCommander || !unit.subLabel) return;
+
+      const ord = gameState.orders[unit.id];
+      if (ord && (ord.moveTo.r !== unit.r || ord.moveTo.c !== unit.c)) {
+        addLog(`⚠️ Clear movement on <strong>${unit.id}</strong> before merging!`, 'text-amber-300');
+        return;
+      }
+
+      const sibling = getAdjacentMergeSibling(unit);
+      if (!sibling) return;
+
+      const primary = unit.subLabel === 'a' ? unit : sibling;
+      const secondary = primary.id === unit.id ? sibling : unit;
+      const unifiedId = `${primary.owner === 'player' ? 'P' : 'E'}${primary.slot}`;
+      const template = UNIT_TEMPLATES.find(t => t.slot === primary.slot);
+
+      const totalMen = Math.min(template ? template.maxMen : primary.maxMen * 2, primary.men + secondary.men);
+      primary.men = totalMen;
+      if (template) primary.maxMen = template.maxMen;
+      primary.id = unifiedId;
+      primary.subLabel = '';
+      primary.hasSplit = false;
+      primary.reloading = primary.reloading || secondary.reloading;
+
+      delete gameState.orders[secondary.id];
+      delete gameState.orders[primary.id];
+      gameState.units = gameState.units.filter(u => u.id !== secondary.id);
+
+      gameState.selectedUnitId = primary.id;
+      addLog(`🔗 <strong>${unit.id}</strong> and <strong>${sibling.id}</strong> re-merged into unified <strong>${primary.id} (${totalMen} men)</strong>!`, 'text-teal-300');
+      updateUI();
+    }
+
+    function setHoldPosition() {
+      if (gameState.phase !== 'planning') return;
+      const u = getUnit(gameState.selectedUnitId);
+      if (!u || u.owner !== gameState.activeCommander) return;
+      const existing = gameState.orders[u.id];
+      gameState.orders[u.id] = {
+        moveTo: { r: u.r, c: u.c },
+        attackTo: existing ? existing.attackTo : null,
+        confirmed: true
+      };
+      updateUI();
+    }
+
+    function clearCurrentOrder() {
+      if (gameState.phase !== 'planning') return;
+      const u = getUnit(gameState.selectedUnitId);
+      if (!u || u.owner !== gameState.activeCommander) return;
+      delete gameState.orders[u.id];
+      updateUI();
+    }
+
+    // =========================================================================
+    // 7. TILE CLICKING (STRICTLY ISSUES MOVE OR ATTACK ORDERS FOR ACTIVE SQUAD)
+    // =========================================================================
+    function handleTileClick(r, c) {
+      if (gameState.phase === 'deploy') {
+        const u = getUnit(gameState.deployingUnitId);
+        if (!u || u.owner !== gameState.activeCommander) return;
+        if (!isValidDeployZone(u.owner, c)) {
+          addLog(`⚠️ Deploy inside your zone (${u.owner === 'player' ? 'Cols 14–18' : 'Cols 1–5'}).`, 'text-amber-300');
+          return;
+        }
+        const occupant = getUnitAt(r, c, u.id);
+        if (occupant) {
+          addLog(`⚠️ Square ${toCoord(r, c)} is already occupied by ${occupant.id}.`, 'text-amber-300');
+          return;
+        }
+        u.r = r;
+        u.c = c;
+        const nextUnplaced = gameState.units.find(x => x.owner === gameState.activeCommander && x.r === null);
+        gameState.deployingUnitId = nextUnplaced ? nextUnplaced.id : null;
+        gameState.selectedUnitId = nextUnplaced ? nextUnplaced.id : u.id;
+        updateUI();
+        return;
+      }
+
+      if (gameState.phase !== 'planning') return;
+      const u = getUnit(gameState.selectedUnitId);
+      if (!u || u.men <= 0 || u.owner !== gameState.activeCommander) return;
+
+      const existing = gameState.orders[u.id] || { moveTo: { r: u.r, c: u.c }, attackTo: null, confirmed: false };
+      const validMoves = getValidMoveTiles(u);
+      const isMoveTile = validMoves.some(m => m.r === r && m.c === c);
+
+      // Ranged units (Archers & Catapults): if they haven't moved yet and click a blue move tile, move first;
+      // otherwise (or if they click outside move tiles / onto their own tile) aim their volley!
+      if (u.type === 'catapult') {
+        if (u.reloading) {
+          addLog(`⏳ ${u.id} is reloading this round and cannot fire.`, 'text-amber-300');
+          return;
+        }
+        const validAtks = getValidAttackTiles(u, u.r, u.c);
+        if (validAtks.some(a => a.r === r && a.c === c)) {
+          gameState.orders[u.id] = { moveTo: { r: u.r, c: u.c }, attackTo: { r, c }, confirmed: true };
+          updateUI();
+        }
+        return;
+      }
+
+      if (u.type === 'archer') {
+        const hasMoved = existing.moveTo.r !== u.r || existing.moveTo.c !== u.c;
+        if (!hasMoved && isMoveTile) {
+          gameState.orders[u.id] = { moveTo: { r, c }, attackTo: null, confirmed: true };
+          updateUI();
+          return;
+        }
+        const validAtks = getValidAttackTiles(u, existing.moveTo.r, existing.moveTo.c);
+        if (validAtks.some(a => a.r === r && a.c === c)) {
+          gameState.orders[u.id] = { moveTo: existing.moveTo, attackTo: { r, c }, confirmed: true };
+          updateUI();
+          return;
+        }
+        if (isMoveTile) {
+          gameState.orders[u.id] = { moveTo: { r, c }, attackTo: null, confirmed: true };
+          updateUI();
+        }
+        return;
+      }
+
+      // Melee units (Cavalry, Legionaries, Spearmen)
+      const validAtksFromDest = getValidAttackTiles(u, existing.moveTo.r, existing.moveTo.c);
+      const isAtkFromDest = validAtksFromDest.some(a => a.r === r && a.c === c);
+
+      // Clicking a tile adjacent to current destination (and not moving onto self) sets melee target
+      if (isAtkFromDest && !(r === existing.moveTo.r && c === existing.moveTo.c)) {
+        // If they haven't chosen a move yet and clicked a blue adjacent tile that has an enemy, attack in place;
+        // if empty blue move tile and haven't moved yet, move onto it first!
+        const occupant = getUnitAt(r, c);
+        const hasMoved = existing.moveTo.r !== u.r || existing.moveTo.c !== u.c;
+        if (!hasMoved && isMoveTile && (!occupant || occupant.owner === u.owner)) {
+          gameState.orders[u.id] = { moveTo: { r, c }, attackTo: null, confirmed: true };
+          updateUI();
+          return;
+        }
+        gameState.orders[u.id] = { moveTo: existing.moveTo, attackTo: { r, c }, confirmed: true };
+        updateUI();
+        return;
+      }
+
+      if (isMoveTile) {
+        gameState.orders[u.id] = { moveTo: { r, c }, attackTo: null, confirmed: true };
+        updateUI();
+      }
+    }
+
+    // =========================================================================
+    // 8. CONFIRM ORDERS -> REVEAL -> EXECUTE QUARTER-STEP CLASHES
+    // =========================================================================
+    function handleMainTurnAction() {
+      if (gameState.phase === 'planning') {
+        // Default un-ordered living units of active commander to Hold Position
+        getLivingUnits(gameState.activeCommander).forEach(u => {
+          if (!gameState.orders[u.id]) {
+            gameState.orders[u.id] = { moveTo: { r: u.r, c: u.c }, attackTo: null, confirmed: true };
+          }
+        });
+
+        if (gameState.gameMode === 'pvp' && gameState.activeCommander === 'player') {
+          gameState.activeCommander = 'enemy';
+          const firstP2 = getLivingUnits('enemy')[0];
+          gameState.selectedUnitId = firstP2 ? firstP2.id : null;
+          updateUI();
+          showPrivacyCurtain(
+            'Pass Device to Player 2 (Left Side)',
+            'Player 1 orders are locked in and hidden. Player 2 may now plan their moves and attacks.'
+          );
+          return;
+        }
+
+        // In 1vsBot, generate Bot orders now before revealing both plans!
+        if (gameState.gameMode === 'bot') {
+          planBotOrders();
+        }
+
+        gameState.phase = 'revealed';
+        gameState.selectedUnitId = null;
+        addLog(`👁️ Both armies' orders revealed! Inspect trajectories and click <strong>Execute Battle</strong>.`, 'text-amber-300');
+        updateUI();
+      } else if (gameState.phase === 'revealed') {
+        executeBattleRound();
+      }
+    }
+
+    function planBotOrders() {
+      const botUnits = getLivingUnits('enemy');
+      const playerUnits = getLivingUnits('player');
+      const reservedTiles = new Set();
+
+      botUnits.forEach(bot => {
+        if (bot.type === 'catapult') {
+          if (!bot.reloading && playerUnits.length > 0) {
+            // Prefer stationary or infantry targets
+            const sorted = [...playerUnits].sort((a, b) => (a.lastMovedDist - b.lastMovedDist) || (b.men - a.men));
+            const target = sorted[0];
+            gameState.orders[bot.id] = { moveTo: { r: bot.r, c: bot.c }, attackTo: { r: target.r, c: target.c }, confirmed: true };
+          } else {
+            gameState.orders[bot.id] = { moveTo: { r: bot.r, c: bot.c }, attackTo: null, confirmed: true };
+          }
+          reservedTiles.add(`${bot.r},${bot.c}`);
+          return;
+        }
+
+        const moves = [{ r: bot.r, c: bot.c, dist: 0 }, ...getValidMoveTiles(bot)]
+          .filter(m => !reservedTiles.has(`${m.r},${m.c}`));
+
+        let bestMove = moves[0] || { r: bot.r, c: bot.c, dist: 0 };
+        let bestAtk = null;
+        let bestScore = -9999;
+
+        moves.forEach(m => {
+          let score = 0;
+          if (bot.type === 'archer') {
+            if (isForest(m.r, m.c)) score += 18;
+            const atks = getValidAttackTiles(bot, m.r, m.c);
+            let localBestAtk = null;
+            let localBestVal = -1;
+            atks.forEach(a => {
+              const victim = playerUnits.find(p => p.r === a.r && p.c === a.c);
+              if (victim) {
+                const val = 45 - a.dist * 3 + (victim.type === 'cavalry' ? 12 : 0);
+                if (val > localBestVal) {
+                  localBestVal = val;
+                  localBestAtk = { r: a.r, c: a.c };
+                }
+              }
+            });
+            score += localBestVal > 0 ? localBestVal : (m.c - bot.c) * 4;
+            if (score > bestScore) {
+              bestScore = score;
+              bestMove = m;
+              bestAtk = localBestAtk;
             }
+          } else {
+            // Melee units advance toward nearest enemy
+            let nearestDist = 99;
+            let nearestEnemy = null;
+            playerUnits.forEach(p => {
+              const d = manhattan(m.r, m.c, p.r, p.c);
+              if (d < nearestDist) {
+                nearestDist = d;
+                nearestEnemy = p;
+              }
+            });
+            score = -nearestDist * 10 + (m.c - bot.c) * 3;
+            if (bot.type === 'cavalry' && m.dist >= 4 && nearestDist === 1) score += 35;
+
+            let localAtk = null;
+            if (nearestEnemy && nearestDist === 1) {
+              localAtk = { r: nearestEnemy.r, c: nearestEnemy.c };
+              score += 25;
+            }
+            if (score > bestScore) {
+              bestScore = score;
+              bestMove = m;
+              bestAtk = localAtk;
+            }
+          }
+        });
+
+        reservedTiles.add(`${bestMove.r},${bestMove.c}`);
+        gameState.orders[bot.id] = {
+          moveTo: { r: bestMove.r, c: bestMove.c },
+          attackTo: bestAtk,
+          confirmed: true
         };
+      });
+    }
 
-        const ARMY_TEMPLATE = ['cavalry', 'archer', 'archer', 'legionary', 'legionary', 'spearman', 'spearman', 'catapult'];
-
-        let state = {
-            gameMode: 'bot', // 'bot' | 'pvp'
-            phase: 'setup', // 'setup', 'setup_p2', 'planning', 'planning_p2', 'revealed', 'executing', 'gameover'
-            activeSide: 'player', // 'player' (Right/P1) | 'enemy' (Left/P2)
-            round: 1,
-            squads: [],
-            selectedSetupSlot: 1,
-            selectedSquadId: null,
-            hoverTile: null,
-            animating: false,
-            revealEnemyOrders: false
-        };
-
-        function isForest(r, c) {
-            return FOREST_COORDS.has(`${r},${c}`);
+    function buildShortestPath(r0, c0, r1, c1) {
+      const path = [{ r: r0, c: c0 }];
+      let r = r0, c = c0;
+      while (r !== r1 || c !== c1) {
+        if (Math.abs(c1 - c) >= Math.abs(r1 - r) && c !== c1) {
+          c += Math.sign(c1 - c);
+        } else if (r !== r1) {
+          r += Math.sign(r1 - r);
+        } else {
+          c += Math.sign(c1 - c);
         }
+        path.push({ r, c });
+      }
+      return path;
+    }
 
-        function formatCoord(r, c) {
-            if (r === null || c === null || r === undefined || c === undefined) return '--';
-            return `${ROW_LETTERS[r]}${c + 1}`;
-        }
+    async function executeBattleRound() {
+      gameState.phase = 'executing';
+      updateUI();
 
-        function manhattanDist(r1, c1, r2, c2) {
-            return Math.abs(r1 - r2) + Math.abs(c1 - c2);
-        }
+      const living = getLivingUnits();
+      const paths = {};
+      const traces = {};
+      const halted = {};
 
-        function getSquadAt(r, c, ignoreIds = new Set()) {
-            return state.squads.find(s => s.alive && !ignoreIds.has(s.id) && s.row === r && s.col === c) || null;
-        }
+      living.forEach(u => {
+        const ord = gameState.orders[u.id] || { moveTo: { r: u.r, c: u.c }, attackTo: null };
+        paths[u.id] = buildShortestPath(u.r, u.c, ord.moveTo.r, ord.moveTo.c);
+        traces[u.id] = [{ r: u.r, c: u.c }];
+        halted[u.id] = false;
+      });
 
-        function getEffectiveAttackPower(sq) {
-            const spec = UNIT_TYPES[sq.type];
-            const ratio = Math.max(0, Math.min(1, sq.men / sq.maxMen));
-            const manpowerFactor = 0.4 + 0.6 * ratio;
-            return spec.baseAtk * manpowerFactor;
-        }
+      // 16 fractional quarter-step ticks with mid-path collision detection
+      const TOTAL_TICKS = 16;
+      for (let tick = 1; tick <= TOTAL_TICKS; tick++) {
+        const progress = tick / TOTAL_TICKS;
 
-        function getEffectiveRange(sq) {
-            const spec = UNIT_TYPES[sq.type];
-            if (sq.type === 'archer') {
-                return isForest(sq.row, sq.col) ? 4 : spec.maxRange;
+        living.forEach(u => {
+          if (halted[u.id]) return;
+          const p = paths[u.id];
+          if (p.length <= 1) {
+            gameState.visualPositions[u.id] = { r: u.r, c: u.c };
+            return;
+          }
+          const exactIdx = progress * (p.length - 1);
+          const idx0 = Math.floor(exactIdx);
+          const idx1 = Math.min(p.length - 1, idx0 + 1);
+          const frac = exactIdx - idx0;
+
+          const vr = p[idx0].r + (p[idx1].r - p[idx0].r) * frac;
+          const vc = p[idx0].c + (p[idx1].c - p[idx0].c) * frac;
+          gameState.visualPositions[u.id] = { r: vr, c: vc };
+
+          const snapTile = p[Math.round(exactIdx)];
+          const lastTrace = traces[u.id][traces[u.id].length - 1];
+          if (lastTrace.r !== snapTile.r || lastTrace.c !== snapTile.c) {
+            traces[u.id].push({ r: snapTile.r, c: snapTile.c });
+          }
+        });
+
+        // Check opposing mid-path head-on collisions
+        for (let i = 0; i < living.length; i++) {
+          for (let j = i + 1; j < living.length; j++) {
+            const a = living[i];
+            const b = living[j];
+            if (a.owner === b.owner) continue;
+            const posA = gameState.visualPositions[a.id] || { r: a.r, c: a.c };
+            const posB = gameState.visualPositions[b.id] || { r: b.r, c: b.c };
+            const dist = Math.hypot(posA.r - posB.r, posA.c - posB.c);
+            if (dist < 0.85 && (!halted[a.id] || !halted[b.id])) {
+              halted[a.id] = true;
+              halted[b.id] = true;
+              const snapA = { r: Math.round(posA.r), c: Math.round(posA.c) };
+              const snapB = { r: Math.round(posB.r), c: Math.round(posB.c) };
+              if (snapA.r === snapB.r && snapA.c === snapB.c) {
+                const prevA = traces[a.id][traces[a.id].length - 2] || { r: a.r, c: a.c };
+                snapA.r = prevA.r;
+                snapA.c = prevA.c;
+              }
+              gameState.visualPositions[a.id] = snapA;
+              gameState.visualPositions[b.id] = snapB;
+              addLog(`💥 <strong>${a.id}</strong> and <strong>${b.id}</strong> collided head-on mid-march!`, 'text-amber-300');
             }
-            return spec.maxRange;
+          }
         }
 
-        function getMovementDefenseBonus(sq, distMoved, dir) {
-            if (sq.type !== 'legionary' && sq.type !== 'spearman') return 0;
-            if (distMoved === 0) return 0.35;
-            if (distMoved === 1) {
-                return dir === 'retreat' ? 0 : 0.20;
-            }
-            if (distMoved === 2) {
-                return dir === 'retreat' ? -0.05 : 0.05;
-            }
-            return 0;
+        renderBattlefieldGrid();
+        await new Promise(res => setTimeout(res, 45));
+      }
+
+      // Commit final integer tile positions & movement momentum
+      const usedFinalTiles = new Set();
+      living.forEach(u => {
+        const finalVis = gameState.visualPositions[u.id] || { r: u.r, c: u.c };
+        let fr = Math.round(finalVis.r);
+        let fc = Math.round(finalVis.c);
+
+        if (usedFinalTiles.has(`${fr},${fc}`)) {
+          const fallback = [...traces[u.id]].reverse().find(t => !usedFinalTiles.has(`${t.r},${t.c}`)) || { r: u.r, c: u.c };
+          fr = fallback.r;
+          fc = fallback.c;
+        }
+        usedFinalTiles.add(`${fr},${fc}`);
+
+        const movedDist = manhattan(u.r, u.c, fr, fc);
+        const dc = fc - u.c;
+        u.lastMovedDist = movedDist;
+        if (movedDist === 0) {
+          u.lastMoveDir = 'none';
+        } else if ((u.owner === 'player' && dc > 0) || (u.owner === 'enemy' && dc < 0)) {
+          u.lastMoveDir = 'backward';
+        } else {
+          u.lastMoveDir = 'forward';
         }
 
-        function classifyMoveDirection(owner, r1, c1, r2, c2) {
-            if (r1 === r2 && c1 === c2) return 'hold';
-            const dc = c2 - c1;
-            // Player is on Right (high col) advancing Left (negative dc); Enemy is on Left advancing Right (positive dc)
-            const forwardDelta = owner === 'player' ? -dc : dc;
-            if (forwardDelta > 0) return 'advance';
-            if (forwardDelta < 0) return 'retreat';
-            return 'side';
+        u.r = fr;
+        u.c = fc;
+      });
+
+      gameState.visualPositions = {};
+
+      // =====================================================================
+      // SIMULTANEOUS CLASH RESOLUTION (NO INDEX PRIORITY)
+      // =====================================================================
+      const damagePool = {};
+      living.forEach(u => { damagePool[u.id] = 0; });
+
+      // 1. Ranged Volleys (Archers & Catapults)
+      living.forEach(attacker => {
+        const ord = gameState.orders[attacker.id];
+        if (!ord || !ord.attackTo) return;
+        if (attacker.type !== 'archer' && attacker.type !== 'catapult') return;
+
+        if (attacker.type === 'catapult') {
+          attacker.justFiredCatapult = true;
         }
 
-        function getValidMoveTiles(sq) {
-            const spec = UNIT_TYPES[sq.type];
-            if (spec.stationary || spec.moveRange <= 0) return [];
+        const spread = getVolleySpread(attacker, attacker.r, attacker.c, ord.attackTo.r, ord.attackTo.c);
+        const atkPower = getEffectiveAttack(attacker);
 
-            // Vacate this squad's own planned destination if re-plotting, and avoid tiles reserved by other squads' planned moves
-            const reserved = new Set();
-            state.squads.forEach(other => {
-                if (!other.alive || other.id === sq.id) return;
-                const dest = other.plannedMove || { row: other.row, col: other.col };
-                if (dest.row !== null && dest.col !== null) {
-                    reserved.add(`${dest.row},${dest.col}`);
-                }
-            });
+        spread.forEach(cell => {
+          living.forEach(target => {
+            // Direct hit on target's final square
+            const onFinal = (target.r === cell.r && target.c === cell.c);
+            // Grazing hit on target's vacated trace square
+            const onTrace = !onFinal && traces[target.id].some(t => t.r === cell.r && t.c === cell.c);
 
-            // Also treat stationary/unmoved squads that are NOT vacating their current tile as blockers
-            const staticBlockers = new Set();
-            state.squads.forEach(other => {
-                if (!other.alive || other.id === sq.id) return;
-                const isMovingAway = other.plannedMove && (other.plannedMove.row !== other.row || other.plannedMove.col !== other.col);
-                if (!isMovingAway && other.row !== null && other.col !== null) {
-                    staticBlockers.add(`${other.row},${other.col}`);
-                }
-            });
+            if (!onFinal && !onTrace) return;
 
-            const tiles = [];
-            const visited = new Set([`${sq.row},${sq.col}`]);
-            const queue = [{ r: sq.row, c: sq.col, steps: 0 }];
-
-            while (queue.length > 0) {
-                const curr = queue.shift();
-                if (curr.steps >= spec.moveRange) continue;
-
-                const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]];
-                for (const [dr, dc] of dirs) {
-                    const nr = curr.r + dr;
-                    const nc = curr.c + dc;
-                    const key = `${nr},${nc}`;
-                    if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS || visited.has(key)) continue;
-                    visited.add(key);
-
-                    if (staticBlockers.has(key) || reserved.has(key)) continue;
-
-                    const nextSteps = curr.steps + 1;
-                    tiles.push({ row: nr, col: nc, steps: nextSteps });
-                    queue.push({ r: nr, c: nc, steps: nextSteps });
-                }
-            }
-            return tiles;
-        }
-
-        function getValidAttackTiles(sq) {
-            if (sq.reloadCooldown > 0) return [];
-            const spec = UNIT_TYPES[sq.type];
-            const origin = sq.plannedMove || { row: sq.row, col: sq.col };
-            const maxR = sq.type === 'archer' ? (isForest(origin.row, origin.col) ? 4 : spec.maxRange) : spec.maxRange;
-            const minR = spec.minRange || 1;
-
-            const tiles = [];
-            for (let r = 0; r < ROWS; r++) {
-                for (let c = 0; c < COLS; c++) {
-                    if (r === origin.row && c === origin.col) continue;
-                    const d = manhattanDist(origin.row, origin.col, r, c);
-                    if (d >= minR && d <= maxR) {
-                        if (spec.maxRange === 1) {
-                            // Melee can target enemies or empty tiles within 1 step to intercept movement
-                            const occupant = getSquadAt(r, c);
-                            if (!occupant || occupant.owner !== sq.owner) {
-                                tiles.push({ row: r, col: c });
-                            }
-                        } else {
-                            tiles.push({ row: r, col: c });
-                        }
-                    }
-                }
-            }
-            return tiles;
-        }
-
-        function getVolleyDispersion(sq, fromR, fromC, aimR, aimC) {
-            const dist = manhattanDist(fromR, fromC, aimR, aimC);
-            const inWoods = isForest(fromR, fromC);
-            const results = [{ row: aimR, col: aimC, weight: 1.0, label: 'Center' }];
-
-            const addSplash = (r, c, weight, label) => {
-                if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return;
-                const existing = results.find(x => x.row === r && x.col === c);
-                if (existing) {
-                    existing.weight += weight;
-                } else {
-                    results.push({ row: r, col: c, weight, label });
-                }
-            };
-
-            if (sq.type === 'archer') {
-                const effDist = inWoods ? dist + 2 : dist;
-                if (effDist <= 2) {
-                    results[0].weight = 1.0;
-                } else if (effDist <= 4) {
-                    results[0].weight = 0.70;
-                    const dr = Math.sign(aimR - fromR);
-                    const dc = Math.sign(aimC - fromC);
-                    addSplash(aimR + dr, aimC + dc, 0.15, 'Far Arc');
-                    addSplash(aimR - dr, aimC - dc, 0.15, 'Near Arc');
-                } else {
-                    results[0].weight = 0.60;
-                    addSplash(aimR - 1, aimC, 0.10, 'N Spread');
-                    addSplash(aimR + 1, aimC, 0.10, 'S Spread');
-                    addSplash(aimR, aimC - 1, 0.10, 'W Spread');
-                    addSplash(aimR, aimC + 1, 0.10, 'E Spread');
-                }
-            } else if (sq.type === 'catapult') {
-                const centerW = dist <= 9 ? 0.70 : 0.40;
-                const armW = dist <= 9 ? 0.075 : 0.15;
-                results[0].weight = centerW;
-                addSplash(aimR - 1, aimC, armW, 'Cross N');
-                addSplash(aimR + 1, aimC, armW, 'Cross S');
-                addSplash(aimR, aimC - 1, armW, 'Cross W');
-                addSplash(aimR, aimC + 1, armW, 'Cross E');
+            let speedMult = 1.0;
+            if (onTrace) {
+              if (target.lastMovedDist === 1) speedMult = 0.55;
+              else if (target.lastMovedDist === 2) speedMult = 0.40;
+              else speedMult = attacker.type === 'archer' ? 0.25 : 0.0;
+            } else if (attacker.type === 'catapult') {
+              if (target.lastMovedDist === 1) speedMult = 0.65;
+              else if (target.lastMovedDist === 2) speedMult = 0.35;
+              else if (target.lastMovedDist >= 3) speedMult = 0.0;
+            } else if (attacker.type === 'archer' && target.lastMovedDist >= 3) {
+              speedMult = 0.85;
             }
 
-            return results;
+            if (speedMult <= 0) return;
+
+            let coverMult = 1.0;
+            if (attacker.type === 'archer' && isForest(target.r, target.c)) {
+              coverMult = 0.60;
+            }
+
+            let rawDmg = atkPower * cell.weight * speedMult * coverMult * (100 / (100 + target.baseDef));
+
+            // Balanced Catapult vs Catapult counter-battery cap (~8 engines max)
+            if (attacker.type === 'catapult' && target.type === 'catapult') {
+              rawDmg = Math.min(8, rawDmg * 0.08);
+            }
+
+            const losses = Math.max(1, Math.round(rawDmg));
+            damagePool[target.id] += losses;
+          });
+        });
+      });
+
+      // 2. Melee Clashes & Focused Spearman Opportunity Thrusts
+      living.forEach(attacker => {
+        if (attacker.type === 'archer' || attacker.type === 'catapult') return;
+        const ord = gameState.orders[attacker.id];
+        const atkPower = getEffectiveAttack(attacker);
+
+        // Planned melee target
+        if (ord && ord.attackTo) {
+          living.forEach(target => {
+            if (target.owner === attacker.owner) return;
+            const onFinal = (target.r === ord.attackTo.r && target.c === ord.attackTo.c);
+            const onTrace = !onFinal && traces[target.id].some(t => t.r === ord.attackTo.r && t.c === ord.attackTo.c);
+            if (!onFinal && !onTrace) return;
+
+            let mult = onTrace ? (target.lastMovedDist === 1 ? 0.55 : 0.40) : 1.0;
+
+            if (attacker.type === 'cavalry') {
+              if (isForest(target.r, target.c)) {
+                mult *= 0.85;
+              } else if (attacker.lastMovedDist >= 4) {
+                mult *= 2.35;
+              } else if (attacker.lastMovedDist === 3) {
+                mult *= 1.70;
+              } else if (attacker.lastMovedDist === 2) {
+                mult *= 1.25;
+              } else {
+                mult *= 0.85;
+              }
+              if (target.type === 'cavalry') mult *= 0.65;
+              if (target.type === 'catapult') mult *= 1.50;
+            } else if (attacker.type === 'spearman' && target.type === 'cavalry') {
+              mult *= (attacker.lastMovedDist === 0 ? 1.65 : 1.35);
+            }
+
+            const defBonus = getShieldWallBonus(target);
+            const effDef = target.baseDef * (1 + defBonus);
+            const losses = Math.max(1, Math.round(atkPower * mult * (100 / (100 + effDef))));
+            damagePool[target.id] += losses;
+          });
         }
 
-        function setGameMode(mode) {
-            state.gameMode = mode;
-            const btnBot = document.getElementById('btn-mode-bot');
-            const btnPvp = document.getElementById('btn-mode-pvp');
-            if (mode === 'bot') {
-                btnBot.className = 'px-2.5 py-1 rounded-md bg-amber-500 text-slate-950 transition';
-                btnPvp.className = 'px-2.5 py-1 rounded-md text-slate-300 hover:text-white transition';
+        // Focused Spearman Opportunity Strike: only if holding position (no other attack order) and an enemy trace passes adjacent
+        if (attacker.type === 'spearman' && (!ord || !ord.attackTo)) {
+          living.forEach(target => {
+            if (target.owner === attacker.owner || target.lastMovedDist === 0) return;
+            const passedAdjacent = traces[target.id].some(t => manhattan(attacker.r, attacker.c, t.r, t.c) === 1);
+            if (passedAdjacent) {
+              const mult = target.type === 'cavalry' ? 1.45 : 0.85;
+              const losses = Math.max(1, Math.round(atkPower * mult * (100 / (100 + target.baseDef))));
+              damagePool[target.id] += losses;
+              addLog(`🔱 <strong>${attacker.id}</strong> landed an Opportunity Thrust on passing <strong>${target.id}</strong>!`, 'text-teal-300');
+            }
+          });
+        }
+      });
+
+      // Apply all simultaneous casualties
+      living.forEach(u => {
+        const dmg = damagePool[u.id] || 0;
+        if (dmg > 0) {
+          const actualLoss = Math.min(u.men, dmg);
+          u.men -= actualLoss;
+          const label = u.type === 'catapult' ? 'engines' : 'men';
+          addLog(`⚔️ <strong>${u.id}</strong> lost <strong>${actualLoss} ${label}</strong> (${u.men} remaining).`, u.owner === 'player' ? 'text-rose-300' : 'text-sky-300');
+        }
+      });
+
+      // Check victory conditions
+      const p1Alive = getLivingUnits('player').length;
+      const p2Alive = getLivingUnits('enemy').length;
+      if (p1Alive === 0 || p2Alive === 0) {
+        gameState.phase = 'gameover';
+        const winner = p1Alive > 0 ? 'Player 1 (Right)' : 'Player 2 / Bot (Left)';
+        addLog(`🏆 <strong>VICTORY! ${winner} wins the Battle of Teutoburg!</strong>`, 'text-amber-300 font-bold');
+        updateUI();
+        return;
+      }
+
+      gameState.round++;
+      startPlanningRound();
+
+      if (gameState.gameMode === 'pvp') {
+        showPrivacyCurtain(
+          `Round ${gameState.round} — Pass Device to Player 1`,
+          'Round execution complete! Hand the screen to Player 1 (Right) to plan the next round.'
+        );
+      }
+    }
+
+    // =========================================================================
+    // 9. CLIPBOARD BRIDGE (COPY FIELD & PASTE AI ORDERS)
+    // =========================================================================
+    function copyFieldToClipboard() {
+      const cmdPrefix = gameState.activeCommander === 'enemy' ? 'P2' : 'P1';
+      const unitsStr = getLivingUnits()
+        .map(u => {
+          const reloadTag = (u.type === 'catapult' && u.reloading) ? '[reloading]' : '';
+          return `${u.men} ${u.id}${reloadTag} ${toCoord(u.r, u.c)}`;
+        })
+        .join(', ');
+
+      const payload = `${cmdPrefix} | ${unitsStr}`;
+
+      // Try legacy execCommand copy via offscreen textarea (bypasses async Clipboard API permissions policy)
+      let copied = false;
+      try {
+        const tempArea = document.createElement('textarea');
+        tempArea.value = payload;
+        tempArea.style.position = 'fixed';
+        tempArea.style.left = '-9999px';
+        document.body.appendChild(tempArea);
+        tempArea.focus();
+        tempArea.select();
+        copied = document.execCommand('copy');
+        document.body.removeChild(tempArea);
+      } catch (e) {
+        copied = false;
+      }
+
+      if (copied) {
+        addLog(`📋 Copied battlefield snapshot starting with <strong>${cmdPrefix}</strong> to clipboard!`, 'text-emerald-300');
+      } else {
+        openCopyFieldModal(payload, cmdPrefix);
+      }
+    }
+
+    function openCopyFieldModal(payload, cmdPrefix) {
+      const modal = document.getElementById('copy-field-modal');
+      const textarea = document.getElementById('copy-field-textarea');
+      const status = document.getElementById('copy-field-status');
+      textarea.value = payload;
+      status.innerHTML = `Active Commander: <strong class="text-emerald-300">${cmdPrefix}</strong>. Select and press <kbd class="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700">Ctrl+C</kbd> / <kbd class="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700">Cmd+C</kbd> to copy:`;
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      setTimeout(() => {
+        textarea.focus();
+        textarea.select();
+      }, 30);
+    }
+
+    function selectAndExecCopy() {
+      const textarea = document.getElementById('copy-field-textarea');
+      textarea.focus();
+      textarea.select();
+      try {
+        if (document.execCommand('copy')) {
+          addLog('📋 Copied battlefield snapshot to clipboard!', 'text-emerald-300');
+          closeCopyFieldModal();
+        }
+      } catch (e) {}
+    }
+
+    function closeCopyFieldModal() {
+      const modal = document.getElementById('copy-field-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function openAiPasteModal() {
+      const modal = document.getElementById('ai-paste-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeAiPasteModal() {
+      const modal = document.getElementById('ai-paste-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function applyPastedAiOrders() {
+      if (gameState.phase !== 'planning') {
+        closeAiPasteModal();
+        return;
+      }
+      const raw = document.getElementById('ai-orders-textarea').value.trim();
+      if (!raw) {
+        closeAiPasteModal();
+        return;
+      }
+
+      const chunks = raw.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean);
+      let appliedCount = 0;
+
+      chunks.forEach(chunk => {
+        const tokens = chunk.split(/\s+/);
+        if (tokens.length < 2) return;
+        const unitId = tokens[0].toUpperCase();
+        let unit = getUnit(unitId);
+        if (!unit || unit.men <= 0 || unit.owner !== gameState.activeCommander) return;
+
+        // Optional merge or split pre-action
+        if (tokens.some(t => t.toLowerCase() === 'merge')) {
+          gameState.selectedUnitId = unit.id;
+          mergeCurrentSquad();
+          unit = getUnit(gameState.selectedUnitId);
+        } else if (tokens.some(t => t.toLowerCase() === 'split')) {
+          gameState.selectedUnitId = unit.id;
+          splitCurrentSquad();
+          unit = getUnit(gameState.selectedUnitId);
+        }
+
+        let moveTo = { r: unit.r, c: unit.c };
+        let attackTo = null;
+
+        const moveIdx = tokens.findIndex(t => t.toLowerCase() === 'move');
+        if (moveIdx !== -1 && tokens[moveIdx + 1]) {
+          const parsedMove = parseCoord(tokens[moveIdx + 1]);
+          if (parsedMove) moveTo = parsedMove;
+        }
+
+        const atkIdx = tokens.findIndex(t => t.toLowerCase() === 'atk' || t.toLowerCase() === 'attack');
+        if (atkIdx !== -1 && tokens[atkIdx + 1]) {
+          const parsedAtk = parseCoord(tokens[atkIdx + 1]);
+          if (parsedAtk) attackTo = parsedAtk;
+        }
+
+        gameState.orders[unit.id] = { moveTo, attackTo, confirmed: true };
+        appliedCount++;
+      });
+
+      closeAiPasteModal();
+      addLog(`📥 Applied <strong>${appliedCount}</strong> editable AI order(s) to the board!`, 'text-cyan-300');
+      updateUI();
+    }
+
+    // =========================================================================
+    // 10. RENDERING ENGINE (ROSTER, GRID, ARROWS & PARABOLIC ARCS)
+    // =========================================================================
+    function updateUI() {
+      renderTopRoster();
+      renderBattlefieldGrid();
+      renderCommandDeck();
+    }
+
+    function renderTopRoster() {
+      const side = gameState.activeCommander;
+      const titleEl = document.getElementById('roster-title-label');
+      titleEl.textContent = gameState.gameMode === 'pvp'
+        ? `${side === 'player' ? 'Player 1 (Right)' : 'Player 2 (Left)'} Legions (Click to Command):`
+        : 'Your Legions (Click to Command):';
+
+      const strip = document.getElementById('roster-strip');
+      strip.innerHTML = '';
+
+      const friendly = gameState.units.filter(u => u.owner === side);
+      friendly.forEach(u => {
+        const isDead = u.men <= 0;
+        const isSelected = u.id === gameState.selectedUnitId || (gameState.phase === 'deploy' && u.id === gameState.deployingUnitId);
+        const hasOrder = !!gameState.orders[u.id];
+
+        const btn = document.createElement('button');
+        btn.disabled = isDead || (gameState.phase !== 'deploy' && gameState.phase !== 'planning');
+        btn.onclick = () => selectSquad(u.id);
+        btn.className = `px-2 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 border transition ${
+          isDead
+            ? 'bg-slate-950/50 text-slate-600 border-slate-800 line-through opacity-50'
+            : isSelected
+              ? 'bg-amber-500/25 text-amber-200 border-amber-400 shadow'
+              : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+        }`;
+        btn.innerHTML = `
+          <span>${u.icon}</span>
+          <span>${u.id}</span>
+          <span class="text-[10px] opacity-75">(${u.men})</span>
+          ${hasOrder && gameState.phase === 'planning' ? '<span class="text-emerald-400 text-[10px]">✓</span>' : ''}
+        `;
+        strip.appendChild(btn);
+      });
+
+      const enemyMen = getLivingUnits('enemy').reduce((s, u) => s + u.men, 0);
+      const playerMen = getLivingUnits('player').reduce((s, u) => s + u.men, 0);
+      document.getElementById('enemy-total-men').textContent = enemyMen.toLocaleString();
+      document.getElementById('player-total-men').textContent = playerMen.toLocaleString();
+
+      const phaseBadge = document.getElementById('phase-badge');
+      const roundBadge = document.getElementById('round-badge');
+      roundBadge.textContent = `Round ${gameState.round}`;
+
+      if (gameState.phase === 'deploy') {
+        phaseBadge.textContent = `PHASE: SECRET DEPLOYMENT (${side === 'player' ? 'P1' : 'P2'})`;
+      } else if (gameState.phase === 'planning') {
+        phaseBadge.textContent = `PHASE: BLIND PLANNING (${side === 'player' ? 'P1' : 'P2'})`;
+      } else if (gameState.phase === 'revealed') {
+        phaseBadge.textContent = 'PHASE: ORDERS REVEALED';
+      } else if (gameState.phase === 'executing') {
+        phaseBadge.textContent = 'PHASE: BATTLE CLASH';
+      } else {
+        phaseBadge.textContent = 'PHASE: BATTLE CONCLUDED';
+      }
+    }
+
+    function renderBattlefieldGrid() {
+      const grid = document.getElementById('battle-grid');
+      // Remove existing cells while preserving the two SVG overlays
+      Array.from(grid.children).forEach(ch => {
+        if (ch.tagName !== 'svg') ch.remove();
+      });
+
+      const activeUnit = getUnit(gameState.selectedUnitId);
+      const existingOrder = activeUnit ? gameState.orders[activeUnit.id] : null;
+      const moveTiles = (gameState.phase === 'planning' && activeUnit) ? getValidMoveTiles(activeUnit) : [];
+      const atkOrigin = existingOrder ? existingOrder.moveTo : (activeUnit ? { r: activeUnit.r, c: activeUnit.c } : null);
+      const atkTiles = (gameState.phase === 'planning' && activeUnit && atkOrigin)
+        ? getValidAttackTiles(activeUnit, atkOrigin.r, atkOrigin.c)
+        : [];
+
+      // Top-left corner spacer
+      const corner = document.createElement('div');
+      grid.appendChild(corner);
+
+      // Column headers 1..18
+      for (let c = 0; c < COLS; c++) {
+        const colHead = document.createElement('div');
+        colHead.className = 'flex items-center justify-center text-[10px] font-bold text-slate-400';
+        colHead.textContent = c + 1;
+        grid.appendChild(colHead);
+      }
+
+      // 10 Rows A..J
+      for (let r = 0; r < ROWS; r++) {
+        const rowHead = document.createElement('div');
+        rowHead.className = 'flex items-center justify-center text-[10px] font-bold text-slate-400';
+        rowHead.textContent = ROW_LETTERS[r];
+        grid.appendChild(rowHead);
+
+        for (let c = 0; c < COLS; c++) {
+          const cell = document.createElement('div');
+          const zoneClass = c <= 4 ? 'zone-enemy' : c >= 13 ? 'zone-player' : 'zone-mid';
+          const forestClass = isForest(r, c) ? 'cell-forest' : '';
+          let stateClass = '';
+
+          if (gameState.phase === 'deploy' && isValidDeployZone(gameState.activeCommander, c)) {
+            stateClass = 'cell-valid-deploy';
+          } else if (gameState.phase === 'planning' && activeUnit) {
+            if (moveTiles.some(m => m.r === r && m.c === c)) stateClass = 'cell-valid-move';
+            else if (atkTiles.some(a => a.r === r && a.c === c)) stateClass = 'cell-valid-attack';
+          }
+
+          cell.className = `grid-cell ${zoneClass} ${forestClass} ${stateClass}`;
+          cell.dataset.r = r;
+          cell.dataset.c = c;
+          cell.onpointerdown = () => handleTileClick(r, c);
+          cell.onmouseenter = () => handleTileHover(r, c);
+
+          // Render unit token if placed on this square (and visible in current phase)
+          const unit = getUnitAt(r, c);
+          if (unit) {
+            const hideInDeploy = (gameState.phase === 'deploy' && unit.owner !== gameState.activeCommander);
+            if (!hideInDeploy) {
+              const token = document.createElement('div');
+              const isSelected = unit.id === gameState.selectedUnitId;
+              const hasOrder = !!gameState.orders[unit.id] && unit.owner === gameState.activeCommander;
+              token.className = `unit-token ${unit.owner === 'player' ? 'unit-player' : 'unit-enemy'} ${isSelected ? 'unit-active-ring' : ''}`;
+              token.innerHTML = `
+                <span class="text-sm leading-none">${unit.icon}</span>
+                <span class="text-[9px] font-extrabold leading-tight text-white">${unit.id}</span>
+                <span class="text-[8px] font-semibold leading-none text-slate-200">${unit.men}</span>
+                ${hasOrder && gameState.phase === 'planning' ? '<span class="unit-queued-check">✓</span>' : ''}
+                ${unit.reloading ? '<span class="unit-reloading-badge">⏳</span>' : ''}
+                ${isForest(r, c) ? '<span class="tree-cover-badge">🌲</span>' : ''}
+              `;
+              cell.appendChild(token);
+            }
+          } else if (isForest(r, c)) {
+            const treeMark = document.createElement('span');
+            treeMark.className = 'text-xs opacity-60 pointer-events-none';
+            treeMark.textContent = '🌲';
+            cell.appendChild(treeMark);
+          }
+
+          grid.appendChild(cell);
+        }
+      }
+
+      renderPlanningOverlays();
+    }
+
+    function handleTileHover(r, c) {
+      gameState.hoverCell = { r, c };
+      const readout = document.getElementById('hover-readout');
+      const coord = toCoord(r, c);
+      const forestTxt = isForest(r, c) ? ' | 🌲 Woods (-40% Arrow Dmg, Anti-Cav)' : '';
+      const u = getUnitAt(r, c);
+      const unitTxt = u && !(gameState.phase === 'deploy' && u.owner !== gameState.activeCommander)
+        ? ` | ${u.id} (${u.men}/${u.maxMen})`
+        : '';
+      readout.textContent = `${coord}${forestTxt}${unitTxt}`;
+
+      // Non-destructive volley spread preview
+      document.querySelectorAll('.cell-spread-primary, .cell-spread-secondary, .cell-friendly-fire').forEach(el => {
+        el.classList.remove('cell-spread-primary', 'cell-spread-secondary', 'cell-friendly-fire');
+      });
+
+      const activeUnit = getUnit(gameState.selectedUnitId);
+      if (gameState.phase === 'planning' && activeUnit && (activeUnit.type === 'archer' || activeUnit.type === 'catapult') && !activeUnit.reloading) {
+        const ord = gameState.orders[activeUnit.id];
+        const origin = ord ? ord.moveTo : { r: activeUnit.r, c: activeUnit.c };
+        const validAtks = getValidAttackTiles(activeUnit, origin.r, origin.c);
+        if (validAtks.some(a => a.r === r && a.c === c)) {
+          const spread = getVolleySpread(activeUnit, origin.r, origin.c, r, c);
+          spread.forEach(s => {
+            const cellEl = document.querySelector(`.grid-cell[data-r="${s.r}"][data-c="${s.c}"]`);
+            if (!cellEl) return;
+            const friendly = getUnitAt(s.r, s.c);
+            if (friendly && friendly.owner === activeUnit.owner) {
+              cellEl.classList.add('cell-friendly-fire');
             } else {
-                btnPvp.className = 'px-2.5 py-1 rounded-md bg-amber-500 text-slate-950 transition';
-                btnBot.className = 'px-2.5 py-1 rounded-md text-slate-300 hover:text-white transition';
+              cellEl.classList.add(s.primary ? 'cell-spread-primary' : 'cell-spread-secondary');
             }
-            initGame();
+          });
+        }
+      }
+    }
+
+    function getCellCenterPx(r, c) {
+      const cell = document.querySelector(`.grid-cell[data-r="${r}"][data-c="${c}"]`);
+      const grid = document.getElementById('battle-grid');
+      if (!cell || !grid) return { x: 0, y: 0 };
+      const cRect = cell.getBoundingClientRect();
+      const gRect = grid.getBoundingClientRect();
+      return {
+        x: cRect.left - gRect.left + cRect.width / 2,
+        y: cRect.top - gRect.top + cRect.height / 2
+      };
+    }
+
+    function renderPlanningOverlays() {
+      const svg = document.getElementById('planning-svg');
+      svg.innerHTML = '';
+      if (gameState.phase !== 'planning' && gameState.phase !== 'revealed') return;
+
+      const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+      defs.innerHTML = `
+        <marker id="arrow-move-p" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="#38bdf8" />
+        </marker>
+        <marker id="arrow-move-e" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="#fb7185" />
+        </marker>
+        <marker id="arrow-atk" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="#f59e0b" />
+        </marker>
+      `;
+      svg.appendChild(defs);
+
+      Object.entries(gameState.orders).forEach(([unitId, ord]) => {
+        const u = getUnit(unitId);
+        if (!u || u.men <= 0) return;
+
+        // During planning, only show active commander's own arrows (blind WEGO)
+        if (gameState.phase === 'planning' && u.owner !== gameState.activeCommander) return;
+
+        const start = getCellCenterPx(u.r, u.c);
+        const dest = getCellCenterPx(ord.moveTo.r, ord.moveTo.c);
+
+        if (ord.moveTo.r !== u.r || ord.moveTo.c !== u.c) {
+          const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          line.setAttribute('x1', start.x);
+          line.setAttribute('y1', start.y);
+          line.setAttribute('x2', dest.x);
+          line.setAttribute('y2', dest.y);
+          line.setAttribute('stroke', u.owner === 'player' ? '#38bdf8' : '#fb7185');
+          line.setAttribute('stroke-width', '2.5');
+          line.setAttribute('stroke-dasharray', '4,3');
+          line.setAttribute('marker-end', u.owner === 'player' ? 'url(#arrow-move-p)' : 'url(#arrow-move-e)');
+          svg.appendChild(line);
         }
 
-        function initGame() {
-            state.phase = 'setup';
-            state.activeSide = 'player';
-            state.round = 1;
-            state.squads = [];
-            state.selectedSetupSlot = 1;
-            state.selectedSquadId = null;
-            state.hoverTile = null;
-            state.animating = false;
-            state.revealEnemyOrders = false;
-
-            ARMY_TEMPLATE.forEach((type, idx) => {
-                const slotNum = idx + 1;
-                const spec = UNIT_TYPES[type];
-                state.squads.push({
-                    id: `player_${slotNum}_main`,
-                    owner: 'player',
-                    slotNum,
-                    subLabel: '',
-                    type,
-                    men: spec.maxMen,
-                    maxMen: spec.maxMen,
-                    row: null,
-                    col: null,
-                    alive: true,
-                    hasSplit: false,
-                    reloadCooldown: 0,
-                    lastMovedDist: 0,
-                    lastMoveDir: 'hold',
-                    roundTrace: [],
-                    plannedMove: null,
-                    plannedAttack: null,
-                    orderTouched: false
-                });
-                state.squads.push({
-                    id: `enemy_${slotNum}_main`,
-                    owner: 'enemy',
-                    slotNum,
-                    subLabel: '',
-                    type,
-                    men: spec.maxMen,
-                    maxMen: spec.maxMen,
-                    row: null,
-                    col: null,
-                    alive: true,
-                    hasSplit: false,
-                    reloadCooldown: 0,
-                    lastMovedDist: 0,
-                    lastMoveDir: 'hold',
-                    roundTrace: [],
-                    plannedMove: null,
-                    plannedAttack: null,
-                    orderTouched: false
-                });
-            });
-
-            document.getElementById('gameover-modal').classList.add('hidden');
-            document.getElementById('setup-panel').classList.remove('hidden');
-            document.getElementById('planning-panel').classList.add('hidden');
-            document.getElementById('execution-panel').classList.add('hidden');
-            document.getElementById('squad-bar').classList.add('hidden');
-            document.getElementById('continuous-units-layer').classList.add('hidden');
-            document.getElementById('round-badge').textContent = 'Round 1';
-            document.getElementById('phase-badge').textContent = state.gameMode === 'pvp' ? '1. P1 Secret Setup' : '1. Secret Deployment';
-            document.getElementById('phase-badge').className = 'px-3 py-1 rounded-lg bg-sky-500/20 border border-sky-500/40 text-xs font-extrabold uppercase tracking-wide text-sky-300';
-            document.getElementById('command-panel-title').textContent = state.gameMode === 'pvp' ? 'Player 1 Deployment (Right)' : 'Deployment Phase';
-            document.getElementById('setup-army-label').textContent = state.gameMode === 'pvp' ? 'Player 1 Legion (8 Units):' : 'Your Legion (8 Units):';
-            document.getElementById('p1-summary-label').textContent = state.gameMode === 'pvp' ? 'Player 1 (Right)' : 'Your Army';
-            document.getElementById('p2-summary-label').textContent = state.gameMode === 'pvp' ? 'Player 2 (Left)' : 'Enemy Legion';
-            document.getElementById('btn-start-battle').textContent = state.gameMode === 'pvp' ? '🔒 Lock P1 & Pass to Player 2' : '⚔️ Lock Formation & Begin';
-            document.getElementById('command-instructions').innerHTML = state.gameMode === 'pvp'
-                ? '<strong>Player 1:</strong> Deploy your 8 units in <strong>Columns 14–18</strong> (Right). Player 2 will deploy next in secret!'
-                : 'Select a unit below and click any tile in your deployment zone (<strong>Columns 14–18</strong>). Woods (🌲) hide Archers and stop Cavalry charges.';
-            document.getElementById('battle-log').innerHTML = '<div class="text-slate-400 italic">Deploy your 8 units in Columns 14–18 to begin...</div>';
-
-            renderAll();
+        if (ord.attackTo) {
+          const targetPt = getCellCenterPx(ord.attackTo.r, ord.attackTo.c);
+          if (u.type === 'archer' || u.type === 'catapult') {
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            const midX = (dest.x + targetPt.x) / 2;
+            const arcLift = Math.min(75, Math.hypot(targetPt.x - dest.x, targetPt.y - dest.y) * 0.28);
+            const midY = Math.min(dest.y, targetPt.y) - arcLift;
+            path.setAttribute('d', `M ${dest.x} ${dest.y} Q ${midX} ${midY} ${targetPt.x} ${targetPt.y}`);
+            path.setAttribute('fill', 'none');
+            path.setAttribute('stroke', '#f59e0b');
+            path.setAttribute('stroke-width', '2');
+            path.setAttribute('stroke-dasharray', '3,3');
+            path.setAttribute('marker-end', 'url(#arrow-atk)');
+            svg.appendChild(path);
+          } else {
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('x1', dest.x);
+            line.setAttribute('y1', dest.y);
+            line.setAttribute('x2', targetPt.x);
+            line.setAttribute('y2', targetPt.y);
+            line.setAttribute('stroke', '#f97316');
+            line.setAttribute('stroke-width', '2.5');
+            line.setAttribute('marker-end', 'url(#arrow-atk)');
+            svg.appendChild(line);
+          }
         }
-
-        function handleSetupTileClick(r, c) {
-            if (state.phase !== 'setup' && state.phase !== 'setup_p2') return;
-            const side = state.activeSide;
-            const inZone = side === 'player' ? (c >= 13 && c < COLS) : (c >= 0 && c <= 4);
-            if (!inZone) {
-                addLog(`⚠️ Deploy inside ${side === 'player' ? 'Columns 14–18 (Right)' : 'Columns 1–5 (Left)'}.`, 'text-amber-400');
-                return;
-            }
-            const selectedSq = state.squads.find(s => s.owner === side && s.slotNum === state.selectedSetupSlot);
-            if (!selectedSq) return;
-            const existing = getSquadAt(r, c);
-            if (existing && existing.owner === side) {
-                const oldR = selectedSq.row;
-                const oldC = selectedSq.col;
-                selectedSq.row = r;
-                selectedSq.col = c;
-                existing.row = oldR;
-                existing.col = oldC;
-            } else if (!existing) {
-                selectedSq.row = r;
-                selectedSq.col = c;
-            }
-            const nextUnplaced = state.squads.find(s => s.owner === side && s.row === null);
-            if (nextUnplaced) state.selectedSetupSlot = nextUnplaced.slotNum;
-            renderAll();
-        }
-
-        function autoDeployPlayer() {
-            const side = state.activeSide;
-            const sideSquads = state.squads.filter(s => s.owner === side);
-            const used = new Set();
-            const place = (sq, preferred) => {
-                for (const [r, c] of preferred) {
-                    if (!used.has(`${r},${c}`)) {
-                        sq.row = r;
-                        sq.col = c;
-                        used.add(`${r},${c}`);
-                        return;
-                    }
-                }
-            };
-            if (side === 'player') {
-                place(sideSquads.find(s => s.slotNum === 8), [[4, 17], [5, 17], [3, 17]]);
-                const archers = sideSquads.filter(s => s.type === 'archer');
-                place(archers[0], [[6, 13], [8, 15], [7, 15]]);
-                place(archers[1], [[1, 15], [2, 15], [3, 15]]);
-                const spears = sideSquads.filter(s => s.type === 'spearman');
-                place(spears[0], [[2, 13], [1, 13], [3, 13]]);
-                place(spears[1], [[7, 13], [8, 13], [5, 13]]);
-                const legs = sideSquads.filter(s => s.type === 'legionary');
-                place(legs[0], [[4, 13], [4, 14]]);
-                place(legs[1], [[5, 13], [5, 14]]);
-                place(sideSquads.find(s => s.type === 'cavalry'), [[0, 14], [9, 14], [0, 15]]);
-            } else {
-                place(sideSquads.find(s => s.slotNum === 8), [[5, 0], [4, 0], [6, 0]]);
-                const archers = sideSquads.filter(s => s.type === 'archer');
-                place(archers[0], [[3, 4], [1, 2], [2, 2]]);
-                place(archers[1], [[8, 2], [7, 2], [6, 2]]);
-                const spears = sideSquads.filter(s => s.type === 'spearman');
-                place(spears[0], [[2, 4], [1, 4], [4, 4]]);
-                place(spears[1], [[7, 4], [8, 4], [6, 4]]);
-                const legs = sideSquads.filter(s => s.type === 'legionary');
-                place(legs[0], [[4, 4], [4, 3]]);
-                place(legs[1], [[5, 4], [5, 3]]);
-                place(sideSquads.find(s => s.type === 'cavalry'), [[9, 3], [0, 3], [9, 2]]);
-            }
-            renderAll();
-        }
-
-        function deployBotArmy() {
-            const botSquads = state.squads.filter(s => s.owner === 'enemy');
-            const used = new Set();
-            const place = (sq, preferred) => {
-                for (const [r, c] of preferred) {
-                    if (!used.has(`${r},${c}`)) {
-                        sq.row = r;
-                        sq.col = c;
-                        used.add(`${r},${c}`);
-                        return;
-                    }
-                }
-            };
-            place(botSquads.find(s => s.slotNum === 8), [[5, 0], [4, 0], [6, 0]]);
-            const archers = botSquads.filter(s => s.type === 'archer');
-            place(archers[0], [[3, 4], [1, 2], [2, 2]]);
-            place(archers[1], [[8, 2], [7, 2], [6, 2]]);
-            const spears = botSquads.filter(s => s.type === 'spearman');
-            place(spears[0], [[2, 4], [1, 4], [4, 4]]);
-            place(spears[1], [[7, 4], [8, 4], [6, 4]]);
-            const legs = botSquads.filter(s => s.type === 'legionary');
-            place(legs[0], [[4, 4], [4, 3]]);
-            place(legs[1], [[5, 4], [5, 3]]);
-            place(botSquads.find(s => s.type === 'cavalry'), [[9, 3], [0, 3], [9, 2]]);
-        }
-
-        function startBattle() {
-            const side = state.activeSide;
-            if (state.squads.filter(s => s.owner === side).some(s => s.row === null)) return;
-
-            if (state.gameMode === 'pvp' && state.phase === 'setup') {
-                state.phase = 'setup_p2';
-                state.activeSide = 'enemy';
-                state.selectedSetupSlot = 1;
-                document.getElementById('phase-badge').textContent = '1b. P2 Secret Setup';
-                document.getElementById('phase-badge').className = 'px-3 py-1 rounded-lg bg-rose-500/20 border border-rose-500/40 text-xs font-extrabold uppercase tracking-wide text-rose-300';
-                document.getElementById('command-panel-title').textContent = 'Player 2 Deployment (Left)';
-                document.getElementById('setup-army-label').textContent = 'Player 2 Legion (8 Units):';
-                document.getElementById('btn-start-battle').textContent = '⚔️ Lock P2 & Reveal Battlefield';
-                document.getElementById('command-instructions').innerHTML = '<strong>Player 2:</strong> Player 1 is hidden! Deploy your 8 units in <strong>Columns 1–5</strong> (Left).';
-                addLog('🔒 Player 1 deployment locked! Pass controls to Player 2.', 'text-sky-300 font-semibold');
-                renderAll();
-                return;
-            }
-
-            if (state.gameMode === 'bot') {
-                deployBotArmy();
-            }
-
-            document.getElementById('setup-panel').classList.add('hidden');
-            document.getElementById('planning-panel').classList.remove('hidden');
-            document.getElementById('squad-bar').classList.remove('hidden');
-            addLog('⚔️ Battle begins! Both armies revealed on the field.', 'text-amber-300 font-bold');
-            startSimultaneousPlanning();
-        }
-
-        function startSimultaneousPlanning() {
-            state.phase = 'planning';
-            state.activeSide = 'player';
-            state.animating = false;
-            state.revealEnemyOrders = false;
-
-            state.squads.forEach(s => {
-                if (s.reloadCooldown > 0) s.reloadCooldown--;
-                s.plannedMove = s.alive ? { row: s.row, col: s.col } : null;
-                s.plannedAttack = null;
-                s.orderTouched = false;
-            });
-
-            const firstPlayerSq = state.squads.find(s => s.alive && s.owner === 'player');
-            state.selectedSquadId = firstPlayerSq ? firstPlayerSq.id : null;
-
-            const execBtn = document.getElementById('btn-execute-round');
-            execBtn.textContent = state.gameMode === 'pvp'
-                ? '🔒 Confirm P1 Orders & Pass to P2'
-                : '🔒 Confirm Orders & Reveal Bot';
-            execBtn.className = 'w-full py-3 px-3 mt-1 rounded-xl font-extrabold text-xs uppercase tracking-wider bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-lg border border-amber-300/70 transition';
-
-            const nextBtn = document.getElementById('btn-next-squad');
-            if (nextBtn) nextBtn.disabled = false;
-
-            document.getElementById('phase-badge').textContent = state.gameMode === 'pvp' ? '2a. P1 Planning (Right)' : '2. Simultaneous Planning';
-            document.getElementById('phase-badge').className = 'px-3 py-1 rounded-lg bg-amber-500/20 border border-amber-500/40 text-xs font-extrabold uppercase tracking-wide text-amber-300';
-            document.getElementById('execution-panel').classList.add('hidden');
-            document.getElementById('planning-panel').classList.remove('hidden');
-            document.getElementById('continuous-units-layer').classList.add('hidden');
-            document.getElementById('command-panel-title').textContent = state.gameMode === 'pvp'
-                ? `Round ${state.round} • Player 1 Orders`
-                : `Round ${state.round} • Tactical Pause`;
-            document.getElementById('command-instructions').innerHTML = state.gameMode === 'pvp'
-                ? '<strong>Player 1 (Right):</strong> Plot your orders, then click <strong>Confirm P1 Orders</strong> to hide them and pass to Player 2!'
-                : 'Plot orders for your units, then click <strong>Confirm Orders</strong> to reveal the Bot’s plan before unfreezing time!';
-
-            renderAll();
-        }
-
-        function handleSplitSquad() {
-            if (state.phase !== 'planning' && state.phase !== 'planning_p2') return;
-            const side = state.activeSide;
-            const sq = state.squads.find(s => s.alive && s.owner === side && s.id === state.selectedSquadId);
-            if (!sq || sq.hasSplit || !UNIT_TYPES[sq.type].canSplit || sq.men < 100) return;
-
-            const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]];
-            let openTile = null;
-            for (const [dr, dc] of dirs) {
-                const nr = sq.row + dr;
-                const nc = sq.col + dc;
-                if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && !getSquadAt(nr, nc)) {
-                    openTile = { row: nr, col: nc };
-                    break;
-                }
-            }
-            if (!openTile) {
-                addLog('⚠️ No adjacent open tile to split into!', 'text-amber-400');
-                return;
-            }
-
-            const halfA = Math.ceil(sq.men / 2);
-            const halfB = Math.floor(sq.men / 2);
-            sq.men = halfA;
-            sq.hasSplit = true;
-            sq.subLabel = 'a';
-            sq.plannedMove = { row: sq.row, col: sq.col };
-            sq.plannedAttack = null;
-
-            const newSq = {
-                ...sq,
-                id: `${sq.owner}_${sq.slotNum}_split_${Math.random().toString(36).slice(2, 6)}`,
-                subLabel: 'b',
-                men: halfB,
-                row: openTile.row,
-                col: openTile.col,
-                roundTrace: [],
-                plannedMove: { row: openTile.row, col: openTile.col },
-                plannedAttack: null,
-                orderTouched: false
-            };
-            state.squads.push(newSq);
-            addLog(`✂️ Split ${side === 'player' ? 'P1' : 'P2'} #${sq.slotNum} ${UNIT_TYPES[sq.type].name} into #${sq.slotNum}a (${halfA}) and #${sq.slotNum}b (${halfB})!`, 'text-indigo-300 font-semibold');
-            renderAll();
-        }
-
-        function handleBattleTileClick(r, c) {
-            if (state.phase !== 'planning' && state.phase !== 'planning_p2') return;
-            const side = state.activeSide;
-            const clickedSq = getSquadAt(r, c);
-            const activeSq = state.squads.find(s => s.alive && s.owner === side && s.id === state.selectedSquadId);
-
-            if (!activeSq) return;
-
-            const spec = UNIT_TYPES[activeSq.type];
-            const validMoves = getValidMoveTiles(activeSq);
-            const isMove = validMoves.some(m => m.row === r && m.col === c);
-
-            if (spec.maxRange > 1) {
-                if (isMove) {
-                    activeSq.plannedMove = { row: r, col: c };
-                    activeSq.orderTouched = true;
-                    if (activeSq.plannedAttack) {
-                        const newAtkTiles = getValidAttackTiles(activeSq);
-                        if (!newAtkTiles.some(a => a.row === activeSq.plannedAttack.row && a.col === activeSq.plannedAttack.col)) {
-                            activeSq.plannedAttack = null;
-                        }
-                    }
-                    renderAll();
-                    return;
-                }
-                const validAttacks = getValidAttackTiles(activeSq);
-                if (validAttacks.some(a => a.row === r && a.col === c)) {
-                    activeSq.plannedAttack = { row: r, col: c };
-                    activeSq.orderTouched = true;
-                    renderAll();
-                }
-                return;
-            }
-
-            const validAttacks = getValidAttackTiles(activeSq);
-            const isAttack = validAttacks.some(a => a.row === r && a.col === c);
-
-            if (clickedSq && clickedSq.owner !== side && isAttack) {
-                activeSq.plannedAttack = { row: r, col: c };
-                activeSq.orderTouched = true;
-                renderAll();
-            } else if (isMove) {
-                activeSq.plannedMove = { row: r, col: c };
-                activeSq.orderTouched = true;
-                if (activeSq.plannedAttack) {
-                    const newAtkTiles = getValidAttackTiles(activeSq);
-                    if (!newAtkTiles.some(a => a.row === activeSq.plannedAttack.row && a.col === activeSq.plannedAttack.col)) {
-                        activeSq.plannedAttack = null;
-                    }
-                }
-                renderAll();
-            } else if (isAttack) {
-                activeSq.plannedAttack = { row: r, col: c };
-                activeSq.orderTouched = true;
-                renderAll();
-            }
-        }
-
-        function handleHoldPosition() {
-            if (state.phase !== 'planning' && state.phase !== 'planning_p2') return;
-            const sq = state.squads.find(s => s.alive && s.owner === state.activeSide && s.id === state.selectedSquadId);
-            if (!sq) return;
-            sq.plannedMove = { row: sq.row, col: sq.col };
-            sq.orderTouched = true;
-            if (sq.plannedAttack) {
-                const validAttacks = getValidAttackTiles(sq);
-                if (!validAttacks.some(a => a.row === sq.plannedAttack.row && a.col === sq.plannedAttack.col)) {
-                    sq.plannedAttack = null;
-                }
-            }
-            renderAll();
-        }
-
-        function handleClearAttack() {
-            if (state.phase !== 'planning' && state.phase !== 'planning_p2') return;
-            const sq = state.squads.find(s => s.alive && s.owner === state.activeSide && s.id === state.selectedSquadId);
-            if (!sq) return;
-            sq.plannedAttack = null;
-            renderAll();
-        }
-
-        function handleSelectNextSquad() {
-            if (state.phase !== 'planning' && state.phase !== 'planning_p2') return;
-            const mySquads = state.squads.filter(s => s.alive && s.owner === state.activeSide);
-            if (mySquads.length === 0) return;
-            const idx = mySquads.findIndex(s => s.id === state.selectedSquadId);
-            const nextSq = mySquads[(idx + 1) % mySquads.length];
-            state.selectedSquadId = nextSq.id;
-            renderAll();
-        }
-
-        function getSquadCode(sq) {
-            const prefix = sq.owner === 'player' ? 'P' : 'E';
-            const sub = sq.subLabel === 'a' ? '.1' : sq.subLabel === 'b' ? '.2' : '';
-            return `${prefix}${sq.slotNum}${sub}`;
-        }
-
-        function parseCoordString(token) {
-            if (!token) return null;
-            const clean = token.trim().toUpperCase();
-            const match = clean.match(/^([A-J])(\d{1,2})$/);
-            if (!match) return null;
-            const r = ROW_LETTERS.indexOf(match[1]);
-            const c = parseInt(match[2], 10) - 1;
-            if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return null;
-            return { row: r, col: c };
-        }
-
-        function handleCopyFieldState() {
-            const living = state.squads.filter(s => s.alive && s.row !== null && s.col !== null);
-            const sorted = [...living].sort((a, b) => {
-                if (a.owner !== b.owner) return a.owner === 'player' ? -1 : 1;
-                if (a.slotNum !== b.slotNum) return a.slotNum - b.slotNum;
-                return a.subLabel.localeCompare(b.subLabel);
-            });
-
-            const line = sorted.map(sq => {
-                const reloadTag = sq.reloadCooldown > 0 ? '[reloading]' : '';
-                return `${sq.men} ${getSquadCode(sq)}(${UNIT_TYPES[sq.type].name}${reloadTag}) ${formatCoord(sq.row, sq.col)}`;
-            }).join(', ');
-
-            const ta = document.createElement('textarea');
-            ta.value = line;
-            ta.style.position = 'fixed';
-            ta.style.left = '-9999px';
-            document.body.appendChild(ta);
-            ta.select();
-            try {
-                document.execCommand('copy');
-                addLog(`📋 Copied field state to clipboard: <span class="text-emerald-300 font-mono">${line}</span>`, 'text-slate-300');
-            } catch (err) {
-                addLog(`⚠️ Clipboard blocked. Field state: ${line}`, 'text-amber-400');
-            }
-            document.body.removeChild(ta);
-        }
-
-        function openPasteOrdersModal() {
-            if (state.phase !== 'planning' && state.phase !== 'planning_p2') return;
-            document.getElementById('ai-orders-input').value = '';
-            document.getElementById('paste-modal').classList.remove('hidden');
-        }
-
-        function applyPastedAiOrders() {
-            const raw = document.getElementById('ai-orders-input').value || '';
-            const side = state.activeSide;
-            const segments = raw.split(/[\n,;]+/).map(s => s.trim()).filter(Boolean);
-            let appliedCount = 0;
-
-            segments.forEach(seg => {
-                const tokens = seg.split(/\s+/);
-                if (tokens.length < 2) return;
-
-                const idToken = tokens[0].toUpperCase().replace(/^ID/, '');
-                const targetSq = state.squads.find(s => s.alive && s.owner === side && getSquadCode(s).toUpperCase() === idToken);
-                if (!targetSq) return;
-
-                let moveCoord = null;
-                let atkCoord = null;
-
-                for (let i = 1; i < tokens.length; i++) {
-                    const tok = tokens[i].toLowerCase();
-                    if (tok === 'hold' || tok === 'stay') {
-                        moveCoord = { row: targetSq.row, col: targetSq.col };
-                    } else if ((tok === 'move' || tok === 'to' || tok === 'm') && tokens[i + 1]) {
-                        moveCoord = parseCoordString(tokens[i + 1]);
-                        i++;
-                    } else if ((tok === 'atk' || tok === 'attack' || tok === 'aim' || tok === 'hit' || tok === 'a') && tokens[i + 1]) {
-                        atkCoord = parseCoordString(tokens[i + 1]);
-                        i++;
-                    } else {
-                        const directCoord = parseCoordString(tokens[i]);
-                        if (directCoord && !moveCoord) moveCoord = directCoord;
-                    }
-                }
-
-                if (moveCoord) {
-                    const validMoves = [{ row: targetSq.row, col: targetSq.col }, ...getValidMoveTiles(targetSq)];
-                    if (validMoves.some(m => m.row === moveCoord.row && m.col === moveCoord.col)) {
-                        targetSq.plannedMove = moveCoord;
-                        targetSq.orderTouched = true;
-                        appliedCount++;
-                    }
-                }
-
-                if (atkCoord) {
-                    const validAtks = getValidAttackTiles(targetSq);
-                    if (validAtks.some(a => a.row === atkCoord.row && a.col === atkCoord.col)) {
-                        targetSq.plannedAttack = atkCoord;
-                        targetSq.orderTouched = true;
-                        appliedCount++;
-                    }
-                }
-            });
-
-            document.getElementById('paste-modal').classList.add('hidden');
-            addLog(`📥 Applied ${appliedCount} editable AI order suggestion(s) for ${side === 'player' ? 'Player 1' : 'Player 2'}.`, 'text-purple-300 font-semibold');
-            renderAll();
-        }
-
-        function planAllBotOrders() {
-            const botSquads = state.squads.filter(s => s.alive && s.owner === 'enemy');
-            const playerSquads = state.squads.filter(s => s.alive && s.owner === 'player');
-            if (playerSquads.length === 0) return;
-
-            botSquads.forEach(sq => {
-                sq.plannedMove = { row: sq.row, col: sq.col };
-                sq.plannedAttack = null;
-
-                if (sq.type === 'catapult') {
-                    if (sq.reloadCooldown <= 0) {
-                        const validAtks = getValidAttackTiles(sq);
-                        if (validAtks.length > 0) {
-                            let best = validAtks[0];
-                            let bestScore = -9999;
-                            validAtks.forEach(t => {
-                                const pSq = getSquadAt(t.row, t.col);
-                                let sc = 0;
-                                if (pSq && pSq.owner === 'player') {
-                                    sc += 80;
-                                    if (pSq.type === 'legionary' || pSq.type === 'spearman') sc += 30;
-                                }
-                                if (sc > bestScore) {
-                                    bestScore = sc;
-                                    best = t;
-                                }
-                            });
-                            sq.plannedAttack = best;
-                        }
-                    }
-                    return;
-                }
-
-                const validMoves = getValidMoveTiles(sq);
-                let bestMove = { row: sq.row, col: sq.col };
-                let bestMoveScore = -9999;
-
-                const candidates = [{ row: sq.row, col: sq.col }, ...validMoves];
-                candidates.forEach(m => {
-                    let sc = 0;
-                    const nearestPlayerDist = Math.min(...playerSquads.map(p => manhattanDist(m.row, m.col, p.row, p.col)));
-
-                    if (sq.type === 'cavalry') {
-                        const distMoved = manhattanDist(sq.row, sq.col, m.row, m.col);
-                        sc -= nearestPlayerDist * 6;
-                        if (distMoved >= 3) sc += 25;
-                        if (isForest(m.row, m.col)) sc -= 30;
-                    } else if (sq.type === 'archer') {
-                        if (isForest(m.row, m.col)) sc += 28;
-                        if (nearestPlayerDist >= 3 && nearestPlayerDist <= 6) sc += 15;
-                        if (nearestPlayerDist <= 1) sc -= 40;
-                    } else {
-                        sc -= nearestPlayerDist * 7;
-                        if (sq.type === 'spearman') {
-                            const nearCav = playerSquads.some(p => p.type === 'cavalry' && manhattanDist(m.row, m.col, p.row, p.col) <= 3);
-                            if (nearCav) sc += 20;
-                        }
-                    }
-
-                    if (sc > bestMoveScore) {
-                        bestMoveScore = sc;
-                        bestMove = m;
-                    }
-                });
-
-                sq.plannedMove = bestMove;
-
-                const atks = getValidAttackTiles(sq);
-                if (atks.length > 0) {
-                    const enemyInRange = atks.filter(a => {
-                        const occ = getSquadAt(a.row, a.col);
-                        return occ && occ.owner === 'player';
-                    });
-                    if (enemyInRange.length > 0) {
-                        enemyInRange.sort((a, b) => {
-                            const sqA = getSquadAt(a.row, a.col);
-                            const sqB = getSquadAt(b.row, b.col);
-                            let prioA = 0;
-                            let prioB = 0;
-                            if (sq.type === 'cavalry' && (sqA.type === 'catapult' || sqA.type === 'archer')) prioA += 40;
-                            if (sq.type === 'cavalry' && sqA.type === 'spearman') prioA -= 50;
-                            if (sq.type === 'archer' && sqA.type === 'cavalry') prioA += 35;
-                            if (sq.type === 'spearman' && sqA.type === 'cavalry') prioA += 45;
-
-                            if (sq.type === 'cavalry' && (sqB.type === 'catapult' || sqB.type === 'archer')) prioB += 40;
-                            if (sq.type === 'cavalry' && sqB.type === 'spearman') prioB -= 50;
-                            if (sq.type === 'archer' && sqB.type === 'cavalry') prioB += 35;
-                            if (sq.type === 'spearman' && sqB.type === 'cavalry') prioB += 45;
-                            return prioB - prioA;
-                        });
-                        sq.plannedAttack = enemyInRange[0];
-                    } else if (sq.type === 'archer') {
-                        const midApproach = atks.find(a => a.col >= 6 && a.col <= 12);
-                        if (midApproach) sq.plannedAttack = midApproach;
-                    }
-                }
-            });
-        }
-
-        function buildContinuousPath(sq) {
-            const start = { r: sq.row, c: sq.col };
-            const end = sq.plannedMove ? { r: sq.plannedMove.row, c: sq.plannedMove.col } : { ...start };
-            const totalDist = manhattanDist(start.r, start.c, end.r, end.c);
-            const path = [{ r: start.r, c: start.c, t: 0 }];
-
-            if (totalDist === 0) {
-                for (let step = 1; step <= 4; step++) {
-                    path.push({ r: start.r, c: start.c, t: step });
-                }
-                return path;
-            }
-
-            let curR = start.r;
-            let curC = start.c;
-            for (let s = 1; s <= totalDist; s++) {
-                const dr = end.r - curR;
-                const dc = end.c - curC;
-                if (Math.abs(dc) >= Math.abs(dr) && dc !== 0) {
-                    curC += Math.sign(dc);
-                } else if (dr !== 0) {
-                    curR += Math.sign(dr);
-                }
-                path.push({ r: curR, c: curC, t: s });
-            }
-            while (path.length <= 4) {
-                path.push({ r: end.r, c: end.c, t: path.length });
-            }
-            return path;
-        }
-
-        function sampleFractionalPosition(path, progressSteps) {
-            if (progressSteps <= 0) return { r: path[0].r, c: path[0].c };
-            const maxIdx = path.length - 1;
-            const idx0 = Math.min(maxIdx, Math.floor(progressSteps));
-            const idx1 = Math.min(maxIdx, idx0 + 1);
-            const frac = progressSteps - idx0;
-            return {
-                r: path[idx0].r + (path[idx1].r - path[idx0].r) * frac,
-                c: path[idx0].c + (path[idx1].c - path[idx0].c) * frac
-            };
-        }
-
-        async function handleExecuteBattleRound() {
-            if (state.animating) return;
-
-            if (state.phase === 'planning') {
-                if (state.gameMode === 'pvp') {
-                    state.phase = 'planning_p2';
-                    state.activeSide = 'enemy';
-                    const firstP2 = state.squads.find(s => s.alive && s.owner === 'enemy');
-                    state.selectedSquadId = firstP2 ? firstP2.id : null;
-
-                    const execBtn = document.getElementById('btn-execute-round');
-                    execBtn.textContent = '🔒 Confirm P2 Orders & Reveal Both';
-                    execBtn.className = 'w-full py-3 px-3 mt-1 rounded-xl font-extrabold text-xs uppercase tracking-wider bg-rose-500 hover:bg-rose-400 text-white shadow-lg border border-rose-300/70 transition';
-
-                    document.getElementById('phase-badge').textContent = '2b. P2 Planning (Left)';
-                    document.getElementById('phase-badge').className = 'px-3 py-1 rounded-lg bg-rose-500/20 border border-rose-500/40 text-xs font-extrabold uppercase tracking-wide text-rose-300';
-                    document.getElementById('command-panel-title').textContent = `Round ${state.round} • Player 2 Orders`;
-                    document.getElementById('command-instructions').innerHTML = '<strong>Player 2 (Left):</strong> P1’s orders are hidden! Plot your moves &amp; attacks, then click <strong>Confirm P2 Orders</strong>.';
-                    addLog(`🔒 Player 1 orders locked & hidden! Passing to Player 2...`, 'text-sky-300 font-semibold');
-                    renderAll();
-                    return;
-                }
-
-                planAllBotOrders();
-                state.phase = 'revealed';
-                state.revealEnemyOrders = true;
-
-                const nextBtn = document.getElementById('btn-next-squad');
-                if (nextBtn) nextBtn.disabled = true;
-
-                const execBtn = document.getElementById('btn-execute-round');
-                execBtn.textContent = '⚔️ Execute Battle (Unfreeze Time)';
-                execBtn.className = 'w-full py-3 px-3 mt-1 rounded-xl font-extrabold text-xs uppercase tracking-wider bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg border border-emerald-300 transition animate-pulse';
-
-                document.getElementById('phase-badge').textContent = '3. Orders Revealed';
-                document.getElementById('phase-badge').className = 'px-3 py-1 rounded-lg bg-purple-500/20 border border-purple-500/40 text-xs font-extrabold uppercase tracking-wide text-purple-300';
-                document.getElementById('command-instructions').innerHTML = '👀 <strong>Bot orders revealed!</strong> Inspect the trajectories on the field, then click <strong>Execute Battle</strong> to unfreeze time!';
-
-                addLog(`👁️ Round ${state.round} orders confirmed! Enemy trajectories revealed on the field.`, 'text-purple-300 font-semibold');
-                renderAll();
-                return;
-            }
-
-            if (state.phase === 'planning_p2') {
-                state.phase = 'revealed';
-                state.revealEnemyOrders = true;
-
-                const nextBtn = document.getElementById('btn-next-squad');
-                if (nextBtn) nextBtn.disabled = true;
-
-                const execBtn = document.getElementById('btn-execute-round');
-                execBtn.textContent = '⚔️ Execute Battle (Unfreeze Time)';
-                execBtn.className = 'w-full py-3 px-3 mt-1 rounded-xl font-extrabold text-xs uppercase tracking-wider bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg border border-emerald-300 transition animate-pulse';
-
-                document.getElementById('phase-badge').textContent = '3. Both Orders Revealed';
-                document.getElementById('phase-badge').className = 'px-3 py-1 rounded-lg bg-purple-500/20 border border-purple-500/40 text-xs font-extrabold uppercase tracking-wide text-purple-300';
-                document.getElementById('command-instructions').innerHTML = '👀 <strong>Both armies’ orders revealed!</strong> Inspect the clash trajectories, then click <strong>Execute Battle</strong>!';
-
-                addLog(`👁️ Round ${state.round} P1 & P2 orders revealed! Ready to execute clash.`, 'text-purple-300 font-semibold');
-                renderAll();
-                return;
-            }
-
-            if (state.phase !== 'revealed') return;
-
-            state.phase = 'executing';
-            state.animating = true;
-            document.getElementById('planning-panel').classList.add('hidden');
-            document.getElementById('execution-panel').classList.remove('hidden');
-            document.getElementById('phase-badge').textContent = '4. Executing Clash';
-            document.getElementById('phase-badge').className = 'px-3 py-1 rounded-lg bg-rose-500/20 border border-rose-500/40 text-xs font-extrabold uppercase tracking-wide text-rose-300';
-
-            const activeSquads = state.squads.filter(s => s.alive);
-            const paths = new Map();
-            const progress = new Map();
-            const stopped = new Map();
-
-            activeSquads.forEach(sq => {
-                sq.roundTrace = [{ row: sq.row, col: sq.col, step: 0 }];
-                paths.set(sq.id, buildContinuousPath(sq));
-                progress.set(sq.id, 0);
-                stopped.set(sq.id, false);
-            });
-
-            renderBattlefieldGrid(true);
-            const contLayer = document.getElementById('continuous-units-layer');
-            contLayer.classList.remove('hidden');
-
-            // 20 quarter-step ticks (up to 5 tiles at 0.25 step per tick)
-            const totalTicks = 20;
-            for (let tick = 1; tick <= totalTicks; tick++) {
-                const subStep = tick * 0.25;
-
-                activeSquads.forEach(sq => {
-                    if (!sq.alive || stopped.get(sq.id)) return;
-                    const spec = UNIT_TYPES[sq.type];
-                    const maxSteps = spec.moveRange;
-                    const speedFactor = spec.moveRange >= 5 ? 1.0 : (spec.moveRange >= 2 ? 0.5 : 0.25);
-                    const nextProg = Math.min(maxSteps, progress.get(sq.id) + speedFactor);
-                    progress.set(sq.id, nextProg);
-
-                    const pos = sampleFractionalPosition(paths.get(sq.id), nextProg);
-                    const snapR = Math.round(pos.r);
-                    const snapC = Math.round(pos.c);
-                    const lastTrace = sq.roundTrace[sq.roundTrace.length - 1];
-                    if (lastTrace.row !== snapR || lastTrace.col !== snapC) {
-                        sq.roundTrace.push({ row: snapR, col: snapC, step: tick });
-                    }
-                });
-
-                // Check collisions at fractional proximity (< 0.85 tiles between opposing units)
-                for (let i = 0; i < activeSquads.length; i++) {
-                    for (let j = i + 1; j < activeSquads.length; j++) {
-                        const a = activeSquads[i];
-                        const b = activeSquads[j];
-                        if (!a.alive || !b.alive || a.owner === b.owner) continue;
-                        const pA = sampleFractionalPosition(paths.get(a.id), progress.get(a.id));
-                        const pB = sampleFractionalPosition(paths.get(b.id), progress.get(b.id));
-                        const dist = Math.hypot(pA.r - pB.r, pA.c - pB.c);
-                        if (dist < 0.85) {
-                            stopped.set(a.id, true);
-                            stopped.set(b.id, true);
-                        }
-                    }
-                }
-
-                renderContinuousLayer(contLayer, activeSquads, paths, progress);
-                await sleep(65);
-            }
-
-            // Snap units to final positions & record movement distance/direction
-            activeSquads.forEach(sq => {
-                if (!sq.alive) return;
-                const pos = sampleFractionalPosition(paths.get(sq.id), progress.get(sq.id));
-                const startR = sq.row;
-                const startC = sq.col;
-                const finalR = Math.max(0, Math.min(ROWS - 1, Math.round(pos.r)));
-                const finalC = Math.max(0, Math.min(COLS - 1, Math.round(pos.c)));
-
-                // Avoid overlapping another unit on final snap
-                const occ = getSquadAt(finalR, finalC, new Set([sq.id]));
-                if (!occ) {
-                    sq.row = finalR;
-                    sq.col = finalC;
-                }
-
-                const distMoved = manhattanDist(startR, startC, sq.row, sq.col);
-                sq.lastMovedDist = distMoved;
-                sq.lastMoveDir = classifyMoveDirection(sq.owner, startR, startC, sq.row, sq.col);
-            });
-
-            // Resolve simultaneous clashes (Ranged Volleys + Melee/Cavalry Impact) without unfair index priority
-            resolveSimultaneousClashes(activeSquads);
-
-            contLayer.classList.add('hidden');
-            state.animating = false;
-            renderAll();
-
-            if (!checkWinCondition()) {
-                state.round++;
-                startSimultaneousPlanning();
-            }
-        }
-
-        function renderContinuousLayer(layer, activeSquads, paths, progress) {
-            layer.innerHTML = '';
-            const colStepPct = 100 / (COLS + 1); // 1 header col + 18 board cols
-            const rowStepPct = 100 / ROWS;
-
-            activeSquads.forEach(sq => {
-                if (!sq.alive) return;
-                const pos = sampleFractionalPosition(paths.get(sq.id), progress.get(sq.id));
-                const spec = UNIT_TYPES[sq.type];
-                const isPlayer = sq.owner === 'player';
-
-                const leftPct = (pos.c + 1) * colStepPct;
-                const topPct = pos.r * rowStepPct;
-
-                const token = document.createElement('div');
-                token.style.position = 'absolute';
-                token.style.left = `${leftPct}%`;
-                token.style.top = `${topPct}%`;
-                token.style.width = `${colStepPct}%`;
-                token.style.height = `${rowStepPct}%`;
-                token.className = 'p-0.5 flex items-center justify-center';
-
-                token.innerHTML = `
-                    <div class="w-[90%] h-[90%] rounded flex flex-col items-center justify-center shadow-lg border ${
-                        isPlayer ? 'bg-sky-900/95 border-sky-300 text-white' : 'bg-rose-950/95 border-rose-400 text-white'
-                    }">
-                        <span class="text-[11px] leading-none">${spec.icon}</span>
-                        <span class="text-[7px] font-extrabold leading-none mt-0.5">${sq.men}</span>
-                    </div>
-                `;
-                layer.appendChild(token);
-            });
-        }
-
-        function resolveSimultaneousClashes(activeSquads) {
-            const snapshotMen = new Map();
-            const casualties = new Map();
-            activeSquads.forEach(s => {
-                snapshotMen.set(s.id, s.men);
-                casualties.set(s.id, 0);
-            });
-
-            const addLoss = (targetSq, amount) => {
-                if (!targetSq || !targetSq.alive) return;
-                const prev = casualties.get(targetSq.id) || 0;
-                casualties.set(targetSq.id, prev + Math.max(0, Math.round(amount)));
-            };
-
-            // 1. Ranged Volleys (Archers & Catapults)
-            activeSquads.forEach(shooter => {
-                if (!shooter.alive || !shooter.plannedAttack) return;
-                const spec = UNIT_TYPES[shooter.type];
-                if (spec.maxRange <= 1) return;
-                if (shooter.type === 'catapult' && shooter.reloadCooldown > 0) return;
-
-                if (shooter.type === 'catapult') {
-                    shooter.reloadCooldown = 2; // Fires once every 2 rounds
-                }
-
-                const spread = getVolleyDispersion(shooter, shooter.row, shooter.col, shooter.plannedAttack.row, shooter.plannedAttack.col);
-                const basePower = getEffectiveAttackPower(shooter);
-
-                spread.forEach(cell => {
-                    const target = getSquadAt(cell.row, cell.col);
-                    if (!target) return;
-
-                    let traceFactor = 1.0;
-                    const traceIdx = target.roundTrace.findIndex(t => t.row === cell.row && t.col === cell.col);
-                    if (traceIdx !== -1 && (target.row !== cell.row || target.col !== cell.col)) {
-                        const stepsFromTrace = Math.max(1, target.roundTrace.length - 1 - traceIdx);
-                        if (stepsFromTrace === 1) traceFactor = 0.55;
-                        else if (stepsFromTrace === 2) traceFactor = 0.40;
-                        else traceFactor = shooter.type === 'archer' ? 0.25 : 0.0;
-                    }
-
-                    if (traceFactor <= 0) return;
-
-                    let speedFactor = 1.0;
-                    if (shooter.type === 'catapult') {
-                        if (target.lastMovedDist === 0) speedFactor = 1.0;
-                        else if (target.lastMovedDist === 1) speedFactor = 0.65;
-                        else if (target.lastMovedDist === 2) speedFactor = 0.35;
-                        else speedFactor = 0.0;
-                    } else if (shooter.type === 'archer' && target.type === 'cavalry' && target.lastMovedDist >= 3) {
-                        speedFactor = 0.85;
-                    }
-
-                    const woodsFactor = (shooter.type === 'archer' && isForest(target.row, target.col)) ? 0.60 : 1.0;
-                    const moveDef = getMovementDefenseBonus(target, target.lastMovedDist, target.lastMoveDir);
-                    const defMult = Math.max(0.4, 1.0 - moveDef);
-
-                    let rawDmg = basePower * cell.weight * traceFactor * speedFactor * woodsFactor * defMult * 0.65;
-
-                    // Catapult vs Catapult counter-battery cap (~7-9 engines max per volley)
-                    if (shooter.type === 'catapult' && target.type === 'catapult') {
-                        rawDmg = Math.min(8.5, rawDmg * 0.08);
-                    }
-
-                    addLoss(target, rawDmg);
-                    if (rawDmg >= 1) {
-                        addLog(`🎯 ${getSquadCode(shooter)} ${spec.icon} hit ${getSquadCode(target)} at ${formatCoord(cell.row, cell.col)} (${Math.round(cell.weight * 100)}% spread) for ~${Math.round(rawDmg)} losses.`, 'text-amber-200');
-                    }
-                });
-            });
-
-            // 2. Melee & Cavalry Charges (Simultaneous snapshot evaluation)
-            activeSquads.forEach(attacker => {
-                if (!attacker.alive) return;
-                const spec = UNIT_TYPES[attacker.type];
-                if (spec.maxRange > 1) return;
-
-                const atkPower = getEffectiveAttackPower(attacker);
-                const atkMoveDef = getMovementDefenseBonus(attacker, attacker.lastMovedDist, attacker.lastMoveDir);
-
-                // Find adjacent enemies or target along planned attack
-                const adjacentEnemies = activeSquads.filter(other =>
-                    other.alive &&
-                    other.owner !== attacker.owner &&
-                    manhattanDist(attacker.row, attacker.col, other.row, other.col) <= 1
-                );
-
-                adjacentEnemies.forEach(defender => {
-                    const defMoveDef = getMovementDefenseBonus(defender, defender.lastMovedDist, defender.lastMoveDir);
-                    let chargeMult = 1.0;
-
-                    if (attacker.type === 'cavalry' && !isForest(defender.row, defender.col)) {
-                        if (attacker.lastMovedDist >= 4) chargeMult = 2.35;
-                        else if (attacker.lastMovedDist === 3) chargeMult = 1.70;
-                        else if (attacker.lastMovedDist === 2) chargeMult = 1.25;
-                        else chargeMult = 0.85;
-
-                        if (defender.type === 'cavalry') chargeMult *= 0.65;
-                        if (defender.type === 'catapult') chargeMult *= 1.50;
-
-                        // Split non-spear infantry on heavy 4-5 tile charge
-                        if (attacker.lastMovedDist >= 4 && defender.type !== 'spearman' && defender.type !== 'catapult' && defender.men >= 200 && !defender.hasSplit) {
-                            const leftTile = { row: defender.row, col: defender.col - 1 };
-                            const rightTile = { row: defender.row, col: defender.col + 1 };
-                            const canLeft = leftTile.col >= 0 && !getSquadAt(leftTile.row, leftTile.col);
-                            const canRight = rightTile.col < COLS && !getSquadAt(rightTile.row, rightTile.col);
-
-                            if (canLeft || canRight) {
-                                const splitLoss = Math.round(defender.men * 0.10);
-                                addLoss(defender, splitLoss);
-                                const remaining = Math.max(40, defender.men - splitLoss);
-                                const halfA = Math.floor(remaining * 0.5);
-                                const halfB = remaining - halfA;
-                                defender.men = halfA;
-                                defender.hasSplit = true;
-                                defender.subLabel = 'a';
-
-                                const spawnPos = canRight ? rightTile : leftTile;
-                                const twin = {
-                                    ...defender,
-                                    id: `${defender.owner}_${defender.slotNum}_split_${Math.random().toString(36).slice(2, 6)}`,
-                                    subLabel: 'b',
-                                    men: halfB,
-                                    row: spawnPos.row,
-                                    col: spawnPos.col,
-                                    roundTrace: [],
-                                    plannedMove: { row: spawnPos.row, col: spawnPos.col },
-                                    plannedAttack: null
-                                };
-                                state.squads.push(twin);
-                                addLog(`💥 Cavalry charge shattered ${getSquadCode(defender)} into two halves!`, 'text-rose-300 font-bold');
-                            }
-                        }
-                    }
-
-                    // Spearman anti-cavalry bonus
-                    let spearBonus = 1.0;
-                    if (attacker.type === 'spearman' && defender.type === 'cavalry') {
-                        spearBonus = attacker.lastMovedDist === 0 ? 1.65 : 1.35;
-                    }
-
-                    const dmg = atkPower * chargeMult * spearBonus * Math.max(0.4, 1.0 - defMoveDef) * 0.45;
-                    addLoss(defender, dmg);
-                });
-            });
-
-            // Apply casualties & check routing/elimination
-            casualties.forEach((loss, id) => {
-                const sq = state.squads.find(s => s.id === id);
-                if (!sq || !sq.alive) return;
-                const applied = Math.min(sq.men, Math.round(loss));
-                sq.men -= applied;
-                if (sq.men <= 0) {
-                    sq.men = 0;
-                    sq.alive = false;
-                    addLog(`💀 ${getSquadCode(sq)} ${UNIT_TYPES[sq.type].name} was wiped out!`, 'text-rose-400 font-bold');
-                }
-            });
-        }
-
-        function checkWinCondition() {
-            const pMen = state.squads.filter(s => s.alive && s.owner === 'player').reduce((sum, s) => sum + s.men, 0);
-            const eMen = state.squads.filter(s => s.alive && s.owner === 'enemy').reduce((sum, s) => sum + s.men, 0);
-            const pAlive = state.squads.some(s => s.alive && s.owner === 'player');
-            const eAlive = state.squads.some(s => s.alive && s.owner === 'enemy');
-
-            if (!pAlive || !eAlive) {
-                state.phase = 'gameover';
-                const modal = document.getElementById('gameover-modal');
-                const emoji = document.getElementById('gameover-emoji');
-                const title = document.getElementById('gameover-title');
-                const msg = document.getElementById('gameover-msg');
-
-                if (eAlive && !pAlive) {
-                    emoji.textContent = '💀';
-                    title.textContent = state.gameMode === 'pvp' ? 'Player 2 Victory!' : 'Defeat';
-                    msg.textContent = `The right flank fell in Round ${state.round} (${eMen} surviving men on the left).`;
-                } else {
-                    emoji.textContent = '🏆';
-                    title.textContent = state.gameMode === 'pvp' ? 'Player 1 Victory!' : 'Victory!';
-                    msg.textContent = `Victory secured in Round ${state.round} with ${pMen} men remaining!`;
-                }
-                modal.classList.remove('hidden');
-                return true;
-            }
-            return false;
-        }
-
-        function sleep(ms) {
-            return new Promise(resolve => setTimeout(resolve, ms));
-        }
-
-        function addLog(htmlMsg, extraClass = 'text-slate-300') {
-            const log = document.getElementById('battle-log');
-            const entry = document.createElement('div');
-            entry.className = `border-b border-slate-800/70 pb-1 ${extraClass}`;
-            entry.innerHTML = htmlMsg;
-            log.prepend(entry);
-        }
-
-        function renderAll() {
-            renderColHeaders();
-            renderSetupPanel();
-            renderSquadBar();
-            renderPlanningControls();
-            renderBattlefieldGrid(false);
-            renderPlanningArrows();
-            renderTotals();
-        }
-
-        function renderColHeaders() {
-            const header = document.getElementById('col-headers');
-            header.innerHTML = '<div></div>';
-            for (let c = 0; c < COLS; c++) {
-                const div = document.createElement('div');
-                div.className = 'text-center';
-                div.textContent = c + 1;
-                header.appendChild(div);
-            }
-        }
-
-        function renderSetupPanel() {
-            if (state.phase !== 'setup' && state.phase !== 'setup_p2') return;
-            const list = document.getElementById('setup-unit-list');
-            list.innerHTML = '';
-
-            const side = state.activeSide;
-            const sideSquads = state.squads.filter(s => s.owner === side);
-            sideSquads.forEach(sq => {
-                const spec = UNIT_TYPES[sq.type];
-                const isSelected = sq.slotNum === state.selectedSetupSlot;
-                const placed = sq.row !== null;
-
-                const btn = document.createElement('button');
-                btn.className = `p-1.5 rounded-lg border text-left transition flex items-center justify-between ${
-                    isSelected
-                        ? (side === 'player' ? 'bg-sky-900/70 border-sky-400 ring-1 ring-sky-400' : 'bg-rose-900/70 border-rose-400 ring-1 ring-rose-400')
-                        : 'bg-slate-800/80 border-slate-700 hover:border-slate-500'
-                }`;
-                btn.innerHTML = `
-                    <div class="flex items-center gap-1.5">
-                        <span class="text-sm">${spec.icon}</span>
-                        <div>
-                            <div class="text-[10px] font-bold text-white">#${sq.slotNum} ${spec.name}</div>
-                            <div class="text-[9px] text-slate-400">${sq.maxMen} men</div>
-                        </div>
-                    </div>
-                    <span class="text-[9px] font-extrabold px-1.5 py-0.5 rounded ${placed ? 'bg-emerald-950 text-emerald-300' : 'bg-slate-900 text-slate-500'}">
-                        ${placed ? formatCoord(sq.row, sq.col) : '--'}
-                    </span>
-                `;
-                btn.onclick = () => { state.selectedSetupSlot = sq.slotNum; renderAll(); };
-                list.appendChild(btn);
-            });
-
-            document.getElementById('btn-start-battle').disabled = sideSquads.some(s => s.row === null);
-        }
-
-        function renderSquadBar() {
-            if (state.phase === 'setup' || state.phase === 'setup_p2') return;
-            const container = document.getElementById('squad-selector-pills');
-            container.innerHTML = '';
-
-            const side = state.activeSide;
-            const barLabel = document.getElementById('squad-bar-label');
-            if (barLabel) {
-                barLabel.textContent = side === 'player'
-                    ? (state.gameMode === 'pvp' ? '⚔️ Player 1 Legion:' : '⚔️ Your Legion:')
-                    : '⚔️ Player 2 Legion:';
-                barLabel.className = `text-[11px] font-bold uppercase tracking-wider shrink-0 ${side === 'player' ? 'text-sky-400' : 'text-rose-400'}`;
-            }
-
-            const mySquads = state.squads.filter(s => s.alive && s.owner === side);
-            let readyCount = 0;
-
-            mySquads.forEach(sq => {
-                const spec = UNIT_TYPES[sq.type];
-                const isSelected = sq.id === state.selectedSquadId;
-                const hasMoved = sq.plannedMove && (sq.plannedMove.row !== sq.row || sq.plannedMove.col !== sq.col);
-                const hasOrders = hasMoved || !!sq.plannedAttack || sq.orderTouched;
-                if (hasOrders) readyCount++;
-
-                const pill = document.createElement('button');
-                pill.className = `px-2 py-1 rounded-md text-[10px] font-bold flex items-center gap-1 shrink-0 border transition ${
-                    isSelected
-                        ? 'bg-amber-400 text-slate-950 border-amber-200 scale-105 shadow'
-                        : hasOrders
-                            ? (side === 'player' ? 'bg-sky-900/90 text-sky-100 border-sky-400/70' : 'bg-rose-900/90 text-rose-100 border-rose-400/70')
-                            : 'bg-slate-900 text-slate-300 border-slate-700 hover:border-slate-500'
-                }`;
-                pill.innerHTML = `
-                    <span>${getSquadCode(sq)}</span>
-                    <span>${spec.icon}</span>
-                    <span>${sq.men}</span>
-                    ${sq.reloadCooldown > 0 ? '<span>⏳</span>' : hasOrders ? '<span class="text-emerald-400">✓</span>' : ''}
-                `;
-                pill.onclick = () => {
-                    state.selectedSquadId = sq.id;
-                    renderAll();
-                };
-                container.appendChild(pill);
-            });
-
-            document.getElementById('orders-ready-text').textContent = `${readyCount} / ${mySquads.length} Orders Plotted`;
-        }
-
-        function renderPlanningControls() {
-            if (state.phase !== 'planning' && state.phase !== 'planning_p2' && state.phase !== 'revealed') return;
-
-            const side = state.activeSide;
-            const activeSq = state.squads.find(s => s.alive && s.owner === side && s.id === state.selectedSquadId);
-            if (!activeSq) return;
-
-            const spec = UNIT_TYPES[activeSq.type];
-            const card = document.getElementById('active-squad-card');
-            const moveDest = activeSq.plannedMove ? formatCoord(activeSq.plannedMove.row, activeSq.plannedMove.col) : formatCoord(activeSq.row, activeSq.col);
-            const atkDest = activeSq.plannedAttack ? formatCoord(activeSq.plannedAttack.row, activeSq.plannedAttack.col) : 'None';
-
-            card.innerHTML = `
-                <div class="flex items-center justify-between">
-                    <span class="text-xs font-black text-amber-300">${getSquadCode(activeSq)} ${spec.icon} ${spec.name}</span>
-                    <span class="text-[11px] font-bold text-slate-300">${activeSq.men} / ${activeSq.maxMen}</span>
-                </div>
-                <div class="grid grid-cols-2 gap-1 text-[10px] text-slate-400 mt-1">
-                    <div>Pos: <strong class="text-white">${formatCoord(activeSq.row, activeSq.col)}</strong></div>
-                    <div>Range: <strong class="text-sky-300">${spec.stationary ? `${spec.minRange}–${spec.maxRange}` : getEffectiveRange(activeSq)}</strong></div>
-                    <div>Move: <strong class="text-sky-300">${moveDest}</strong></div>
-                    <div>Target: <strong class="text-rose-300">${atkDest}</strong></div>
-                </div>
-                ${activeSq.reloadCooldown > 0 ? '<div class="mt-1 text-[10px] font-bold text-amber-400">⏳ Reloading Catapult (Fires next round)</div>' : ''}
-            `;
-
-            const splitBtn = document.getElementById('btn-split-squad');
-            if (spec.canSplit && !activeSq.hasSplit && activeSq.men >= 100 && (state.phase === 'planning' || state.phase === 'planning_p2')) {
-                splitBtn.classList.remove('hidden');
-            } else {
-                splitBtn.classList.add('hidden');
-            }
-        }
-
-        function updateVolleyHoverHighlights(activeSq, r, c) {
-            const grid = document.getElementById('battlefield-grid');
-            if (!grid) return;
-
-            grid.querySelectorAll('.tile-aoe-center, .tile-aoe-splash').forEach(el => {
-                el.classList.remove('tile-aoe-center', 'tile-aoe-splash');
-            });
-
-            if (!activeSq || UNIT_TYPES[activeSq.type].maxRange <= 1) return;
-            const validAttacks = getValidAttackTiles(activeSq);
-            if (!validAttacks.some(a => a.row === r && a.col === c)) return;
-
-            const origin = activeSq.plannedMove || { row: activeSq.row, col: activeSq.col };
-            const spread = getVolleyDispersion(activeSq, origin.row, origin.col, r, c);
-            spread.forEach((d, idx) => {
-                const targetCell = grid.querySelector(`[data-r="${d.row}"][data-c="${d.col}"]`);
-                if (targetCell) {
-                    targetCell.classList.add(idx === 0 ? 'tile-aoe-center' : 'tile-aoe-splash');
-                }
-            });
-        }
-
-        function renderBattlefieldGrid(hideTokensForContinuous = false) {
-            const grid = document.getElementById('battlefield-grid');
-            grid.innerHTML = '';
-
-            const isPlanningPhase = state.phase === 'planning' || state.phase === 'planning_p2';
-            const side = state.activeSide;
-            const activeSq = (isPlanningPhase || state.phase === 'revealed')
-                ? state.squads.find(s => s.alive && s.owner === side && s.id === state.selectedSquadId)
-                : null;
-
-            const validMoves = (isPlanningPhase && activeSq) ? getValidMoveTiles(activeSq) : [];
-            const validAttacks = (isPlanningPhase && activeSq) ? getValidAttackTiles(activeSq) : [];
-
-            let dispersionPreview = [];
-            if (activeSq && UNIT_TYPES[activeSq.type].maxRange > 1 && state.hoverTile) {
-                if (validAttacks.some(a => a.row === state.hoverTile.row && a.col === state.hoverTile.col)) {
-                    const origin = activeSq.plannedMove || { row: activeSq.row, col: activeSq.col };
-                    dispersionPreview = getVolleyDispersion(activeSq, origin.row, origin.col, state.hoverTile.row, state.hoverTile.col);
-                }
-            }
-
-            for (let r = 0; r < ROWS; r++) {
-                const rowHeader = document.createElement('div');
-                rowHeader.className = 'flex items-center justify-center text-[9px] font-bold text-slate-500';
-                rowHeader.textContent = ROW_LETTERS[r];
-                grid.appendChild(rowHeader);
-
-                for (let c = 0; c < COLS; c++) {
-                    const cell = document.createElement('div');
-                    cell.dataset.r = r;
-                    cell.dataset.c = c;
-                    const forest = isForest(r, c);
-                    const sq = getSquadAt(r, c);
-                    const hiddenInSetup = sq && (
-                        (state.phase === 'setup' && sq.owner === 'enemy') ||
-                        (state.phase === 'setup_p2' && sq.owner === 'player')
-                    );
-                    const visibleSquad = (sq && !hiddenInSetup) ? sq : null;
-
-                    let baseTerrain = 'tile-grass';
-                    if (forest) baseTerrain = 'tile-forest';
-                    else if (c <= 4) baseTerrain = 'tile-deploy-enemy';
-                    else if (c >= 13) baseTerrain = 'tile-deploy-player';
-
-                    const isMoveTile = validMoves.some(m => m.row === r && m.col === c);
-                    const isAtkTile = validAttacks.some(a => a.row === r && a.col === c);
-                    const dispIdx = dispersionPreview.findIndex(d => d.row === r && d.col === c);
-                    const inSetupZone = (state.phase === 'setup' && c >= 13) || (state.phase === 'setup_p2' && c <= 4);
-
-                    cell.className = `relative aspect-square rounded border flex flex-col items-center justify-center transition-colors ${baseTerrain} ${
-                        inSetupZone ? 'cursor-pointer hover:border-sky-400' : ''
-                    } ${isMoveTile ? 'tile-valid-move' : ''} ${
-                        isAtkTile && !isMoveTile ? 'tile-valid-attack' : ''
-                    } ${dispIdx === 0 ? 'tile-aoe-center' : dispIdx > 0 ? 'tile-aoe-splash' : ''}`;
-
-                    cell.onpointerdown = (e) => {
-                        e.preventDefault();
-                        if (state.phase === 'setup' || state.phase === 'setup_p2') handleSetupTileClick(r, c);
-                        else handleBattleTileClick(r, c);
-                    };
-                    cell.onmouseenter = () => {
-                        state.hoverTile = { row: r, col: c };
-                        updateVolleyHoverHighlights(activeSq, r, c);
-                        renderInspector(r, c, visibleSquad);
-                    };
-
-                    if (forest && !visibleSquad) {
-                        cell.innerHTML = `<span class="text-xs sm:text-sm opacity-75">🌲</span>`;
-                    } else if (isMoveTile && !visibleSquad) {
-                        cell.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-sky-400/80"></span>`;
-                    } else if (isAtkTile && !isMoveTile && !visibleSquad) {
-                        cell.innerHTML = `<span class="text-[8px] text-rose-400/60 font-bold">+</span>`;
-                    }
-
-                    if (visibleSquad && !hideTokensForContinuous) {
-                        const spec = UNIT_TYPES[visibleSquad.type];
-                        const isPlayer = visibleSquad.owner === 'player';
-                        const isActiveUnit = activeSq && activeSq.id === visibleSquad.id;
-                        const hpRatio = visibleSquad.men / visibleSquad.maxMen;
-                        const showPlannedBadge = visibleSquad.owner === side || state.revealEnemyOrders;
-                        const hasOrders = showPlannedBadge && (
-                            (visibleSquad.plannedMove && (visibleSquad.plannedMove.row !== visibleSquad.row || visibleSquad.plannedMove.col !== visibleSquad.col)) ||
-                            !!visibleSquad.plannedAttack
-                        );
-
-                        cell.innerHTML = `
-                            <div class="w-[90%] h-[90%] rounded flex flex-col items-center justify-center relative shadow-md border ${
-                            isPlayer
-                                ? 'bg-sky-900/95 border-sky-400 text-white'
-                                : 'bg-rose-950/95 border-rose-500 text-white'
-                        } ${isActiveUnit ? 'unit-active-planning ring-2 ring-amber-300' : ''}">
-                            <span class="absolute top-0 left-0.5 text-[7px] font-black opacity-85">${getSquadCode(visibleSquad)}</span>
-                                ${forest ? '<span class="absolute top-0 right-0.5 text-[7px]" title="Protected in Woods">🌲</span>' : ''}
-                                ${visibleSquad.reloadCooldown > 0 ? '<span class="absolute bottom-1 right-0.5 text-[7px]" title="Reloading">⏳</span>' : ''}
-                                ${hasOrders && !isActiveUnit ? '<span class="absolute top-0 right-0.5 w-1.5 h-1.5 rounded-full bg-emerald-400"></span>' : ''}
-                                <span class="text-[11px] sm:text-xs leading-none">${spec.icon}</span>
-                                <span class="text-[7px] sm:text-[8px] font-extrabold leading-none mt-0.5">${visibleSquad.men}</span>
-                                <div class="w-4/5 h-[2px] bg-black/60 rounded-full overflow-hidden mt-0.5">
-                                    <div class="h-full ${hpRatio > 0.5 ? 'bg-emerald-400' : hpRatio > 0.25 ? 'bg-amber-400' : 'bg-rose-500'}" style="width:${Math.round(hpRatio * 100)}%"></div>
-                                </div>
-                            </div>
-                        `;
-                    }
-
-                    grid.appendChild(cell);
-                }
-            }
-        }
-
-        function renderPlanningArrows() {
-            const layer = document.getElementById('arrows-layer');
-            layer.innerHTML = '';
-            if (state.phase !== 'planning' && state.phase !== 'planning_p2' && state.phase !== 'revealed' && !state.revealEnemyOrders) return;
-
-            const centerX = (c) => (c + 1) * 100 + 50;
-            const centerY = (r) => r * 100 + 50;
-
-            state.squads.filter(s => s.alive).forEach(sq => {
-                if (!state.revealEnemyOrders && sq.owner !== state.activeSide) return;
-
-                const isPlayer = sq.owner === 'player';
-                const startX = centerX(sq.col);
-                const startY = centerY(sq.row);
-                let originX = startX;
-                let originY = startY;
-
-                if (sq.plannedMove && (sq.plannedMove.row !== sq.row || sq.plannedMove.col !== sq.col)) {
-                    const endX = centerX(sq.plannedMove.col);
-                    const endY = centerY(sq.plannedMove.row);
-                    const moveColor = isPlayer ? '#38bdf8' : '#fb7185';
-
-                    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                    line.setAttribute('x1', startX);
-                    line.setAttribute('y1', startY);
-                    line.setAttribute('x2', endX);
-                    line.setAttribute('y2', endY);
-                    line.setAttribute('stroke', moveColor);
-                    line.setAttribute('stroke-width', '7');
-                    line.setAttribute('stroke-linecap', 'round');
-                    line.setAttribute('opacity', '0.82');
-                    layer.appendChild(line);
-
-                    const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                    dot.setAttribute('cx', endX);
-                    dot.setAttribute('cy', endY);
-                    dot.setAttribute('r', '13');
-                    dot.setAttribute('fill', moveColor);
-                    dot.setAttribute('opacity', '0.9');
-                    layer.appendChild(dot);
-
-                    originX = endX;
-                    originY = endY;
-                }
-
-                if (sq.plannedAttack) {
-                    const tx = centerX(sq.plannedAttack.col);
-                    const ty = centerY(sq.plannedAttack.row);
-                    const isRanged = UNIT_TYPES[sq.type].maxRange > 1;
-                    const atkColor = isPlayer ? '#facc15' : '#f43f5e';
-
-                    if (isRanged) {
-                        const dist = Math.hypot(tx - originX, ty - originY);
-                        const arcHeight = Math.min(260, Math.max(70, dist * 0.24));
-                        const midX = (originX + tx) / 2;
-                        const midY = Math.min(originY, ty) - arcHeight;
-
-                        const arc = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                        arc.setAttribute('d', `M ${originX} ${originY} Q ${midX} ${midY} ${tx} ${ty}`);
-                        arc.setAttribute('fill', 'none');
-                        arc.setAttribute('stroke', atkColor);
-                        arc.setAttribute('stroke-width', '6.5');
-                        arc.setAttribute('stroke-dasharray', '14 8');
-                        arc.setAttribute('stroke-linecap', 'round');
-                        arc.setAttribute('opacity', '0.92');
-                        layer.appendChild(arc);
-                    } else {
-                        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                        line.setAttribute('x1', originX);
-                        line.setAttribute('y1', originY);
-                        line.setAttribute('x2', tx);
-                        line.setAttribute('y2', ty);
-                        line.setAttribute('stroke', atkColor);
-                        line.setAttribute('stroke-width', '7');
-                        line.setAttribute('stroke-linecap', 'round');
-                        line.setAttribute('opacity', '0.9');
-                        layer.appendChild(line);
-                    }
-
-                    const cross = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                    cross.setAttribute('cx', tx);
-                    cross.setAttribute('cy', ty);
-                    cross.setAttribute('r', '15');
-                    cross.setAttribute('fill', 'none');
-                    cross.setAttribute('stroke', atkColor);
-                    cross.setAttribute('stroke-width', '5');
-                    layer.appendChild(cross);
-                }
-            });
-        }
-
-        function renderInspector(r, c, sq) {
-            const coordLabel = document.getElementById('hover-coord-readout');
-            const box = document.getElementById('tile-inspector');
-            if (!coordLabel || !box) return;
-
-            const forest = isForest(r, c);
-            coordLabel.textContent = `${formatCoord(r, c)}${forest ? ' • 🌲 Woods' : ''}`;
-
-            if (!sq) {
-                box.innerHTML = `
-                    <div class="font-bold text-white">${formatCoord(r, c)} — ${forest ? '🌲 Forest Cover' : 'Open Ground'}</div>
-                    <div class="text-[11px] text-slate-400">${forest ? 'Reduces incoming arrow damage by 40% and halts Cavalry charge-splits. Archers in woods have range 4.' : 'Standard terrain. Cavalry can build charge momentum across open tiles.'}</div>
-                `;
-                return;
-            }
-
-            const spec = UNIT_TYPES[sq.type];
-            const moveDef = getMovementDefenseBonus(sq, sq.lastMovedDist, sq.lastMoveDir);
-            box.innerHTML = `
-                <div class="flex items-center justify-between">
-                    <span class="font-bold text-white">${getSquadCode(sq)} ${spec.icon} ${spec.name} (${sq.owner === 'player' ? 'P1/Right' : 'P2/Left'})</span>
-                    <span class="font-mono text-amber-300 font-bold">${sq.men}/${sq.maxMen}</span>
-                </div>
-                <div class="text-[11px] text-slate-400">
-                    Tile ${formatCoord(r, c)} ${forest ? '(🌲 Woods)' : ''} • Last move: ${sq.lastMovedDist} (${sq.lastMoveDir}) • Stance DEF: ${moveDef >= 0 ? '+' : ''}${Math.round(moveDef * 100)}%
-                </div>
-            `;
-        }
-
-        function renderTotals() {
-            const pMen = state.squads.filter(s => s.alive && s.owner === 'player').reduce((sum, s) => sum + s.men, 0);
-            const eMen = state.squads.filter(s => s.alive && s.owner === 'enemy').reduce((sum, s) => sum + s.men, 0);
-            document.getElementById('player-total-men').textContent = pMen.toLocaleString();
-            document.getElementById('enemy-total-men').textContent = eMen.toLocaleString();
-        }
-
-        document.getElementById('btn-mode-bot').onclick = () => setGameMode('bot');
-        document.getElementById('btn-mode-pvp').onclick = () => setGameMode('pvp');
-        document.getElementById('btn-auto-deploy').onclick = autoDeployPlayer;
-        document.getElementById('btn-start-battle').onclick = startBattle;
-        document.getElementById('btn-split-squad').onclick = handleSplitSquad;
-        document.getElementById('btn-hold-position').onclick = handleHoldPosition;
-        document.getElementById('btn-clear-attack').onclick = handleClearAttack;
-        document.getElementById('btn-next-squad').onclick = handleSelectNextSquad;
-        document.getElementById('btn-copy-field').onclick = handleCopyFieldState;
-        document.getElementById('btn-paste-orders').onclick = openPasteOrdersModal;
-        document.getElementById('btn-close-paste').onclick = () => document.getElementById('paste-modal').classList.add('hidden');
-        document.getElementById('btn-cancel-paste').onclick = () => document.getElementById('paste-modal').classList.add('hidden');
-        document.getElementById('btn-apply-ai-orders').onclick = applyPastedAiOrders;
-        document.getElementById('btn-execute-round').onclick = handleExecuteBattleRound;
-        document.getElementById('btn-restart').onclick = initGame;
-        document.getElementById('btn-play-again').onclick = initGame;
-        document.getElementById('btn-rules').onclick = () => document.getElementById('rules-modal').classList.remove('hidden');
-        document.getElementById('btn-close-rules').onclick = () => document.getElementById('rules-modal').classList.add('hidden');
-
-        window.onload = initGame;
-    </script>
+      });
+    }
+
+    function renderCommandDeck() {
+      const deployCtrls = document.getElementById('deploy-controls');
+      const planCtrls = document.getElementById('planning-controls');
+      const nextBtn = document.getElementById('btn-next-unit');
+      const titleEl = document.getElementById('active-unit-title');
+      const detailsEl = document.getElementById('active-unit-details');
+
+      nextBtn.disabled = gameState.phase !== 'planning';
+
+      if (gameState.phase === 'deploy') {
+        deployCtrls.classList.remove('hidden');
+        planCtrls.classList.add('hidden');
+
+        const side = gameState.activeCommander;
+        const sideUnits = gameState.units.filter(u => u.owner === side);
+        const allPlaced = sideUnits.every(u => u.r !== null);
+        document.getElementById('btn-start-battle').disabled = !allPlaced;
+
+        const depUnit = getUnit(gameState.deployingUnitId);
+        titleEl.textContent = depUnit
+          ? `Deploying ${depUnit.icon} ${depUnit.id} — ${depUnit.name}`
+          : `${side === 'player' ? 'Player 1' : 'Player 2'} Formation Ready`;
+        detailsEl.innerHTML = `<p class="sm:col-span-2">Click any highlighted green tile in <strong>${side === 'player' ? 'Columns 14–18' : 'Columns 1–5'}</strong> to place your unit, or click <strong>Auto-Deploy Formation</strong>.</p>`;
+        return;
+      }
+
+      deployCtrls.classList.add('hidden');
+      planCtrls.classList.remove('hidden');
+      planCtrls.classList.add('flex');
+
+      const confirmBtn = document.getElementById('btn-confirm-all');
+      if (gameState.phase === 'planning') {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = (gameState.gameMode === 'pvp' && gameState.activeCommander === 'player')
+          ? '🔒 Confirm P1 Orders & Pass to P2'
+          : '👁️ Confirm Orders & Reveal Enemy Plan';
+      } else if (gameState.phase === 'revealed') {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = '⚔️ Execute Battle Round';
+      } else {
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = gameState.phase === 'gameover' ? '🏆 Battle Concluded' : '⏳ Resolving Clash...';
+      }
+
+      const u = getUnit(gameState.selectedUnitId);
+      const splitBtn = document.getElementById('btn-split-squad');
+      const mergeBtn = document.getElementById('btn-merge-squad');
+      const holdBtn = document.getElementById('btn-hold-pos');
+      const clearBtn = document.getElementById('btn-clear-order');
+
+      if (!u || gameState.phase !== 'planning') {
+        titleEl.textContent = gameState.phase === 'revealed'
+          ? 'Both Plans Revealed — Review Arrows Before Execution'
+          : 'Select a Friendly Squad';
+        detailsEl.innerHTML = `<p class="sm:col-span-2">Use the top legion bar or <strong>Select Next Friendly Squad</strong> to inspect or adjust unit orders.</p>`;
+        splitBtn.disabled = true;
+        mergeBtn.disabled = true;
+        holdBtn.disabled = true;
+        clearBtn.disabled = true;
+        return;
+      }
+
+      const ord = gameState.orders[u.id];
+      const hasMovedThisPlan = ord && (ord.moveTo.r !== u.r || ord.moveTo.c !== u.c);
+      const mergeSibling = getAdjacentMergeSibling(u);
+
+      splitBtn.disabled = !!u.subLabel || u.type === 'catapult' || u.men < 100;
+      mergeBtn.disabled = !u.subLabel || !mergeSibling || hasMovedThisPlan;
+      holdBtn.disabled = false;
+      clearBtn.disabled = !ord;
+
+      titleEl.textContent = `${u.icon} ${u.id} — ${u.name} (${u.men}/${u.maxMen} ${u.type === 'catapult' ? 'engines' : 'men'})`;
+      const effRange = getEffectiveRange(u, u.r, u.c);
+      const orderSummary = ord
+        ? `Move: <strong>${toCoord(ord.moveTo.r, ord.moveTo.c)}</strong> | Target: <strong>${ord.attackTo ? toCoord(ord.attackTo.r, ord.attackTo.c) : 'None'}</strong>`
+        : 'No order assigned yet (defaults to Hold)';
+
+      detailsEl.innerHTML = `
+        <div>📍 Position: <strong>${toCoord(u.r, u.c)}</strong> ${isForest(u.r, u.c) ? '🌲 (In Woods)' : ''}</div>
+        <div>🏃 Move: <strong>0–${u.move} tiles</strong> | 🎯 Range: <strong>${u.minRange}–${effRange}</strong></div>
+        <div class="sm:col-span-2 text-amber-200">📋 Planned Order: ${orderSummary}</div>
+      `;
+    }
+
+    function openRulesModal() {
+      const m = document.getElementById('rules-modal');
+      m.classList.remove('hidden');
+      m.classList.add('flex');
+    }
+
+    function closeRulesModal() {
+      const m = document.getElementById('rules-modal');
+      m.classList.add('hidden');
+      m.classList.remove('flex');
+    }
+
+    // Boot game
+    window.addEventListener('DOMContentLoaded', resetGame);
+  </script>
 </body>
 </html>
